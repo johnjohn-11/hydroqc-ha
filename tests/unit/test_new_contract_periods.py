@@ -98,6 +98,20 @@ async def test_new_contract_periods_retried_hourly_until_available(
     assert coordinator.get_sensor_value("contract.cp_current_bill") == 45.67
 
 
+async def test_new_contract_skips_consumption_sync(
+    coordinator: HydroQcDataCoordinator,
+    contract: MagicMock,
+) -> None:
+    """Hourly consumption is refused too, the sync waits and keeps its initial run."""
+    await coordinator.async_refresh()
+
+    with patch.object(coordinator, "async_fetch_hourly_consumption") as fetch:
+        await coordinator._async_regular_consumption_sync()
+
+    fetch.assert_not_called()
+    assert not coordinator._initial_sync_done
+
+
 async def test_old_contract_periods_error_still_fails(
     coordinator: HydroQcDataCoordinator,
     contract: MagicMock,

@@ -111,6 +111,11 @@ class ConsumptionSyncMixin:
         if not self.is_portal_mode:
             return
 
+        # Hourly consumption of a new contract is refused like its periods, retry next hour
+        if self.periods_unavailable:
+            _LOGGER.debug("Consumption periods not available yet, skipping consumption sync")
+            return
+
         # Check portal status before attempting sync
         if self._webuser:
             try:
