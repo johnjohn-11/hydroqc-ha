@@ -78,7 +78,7 @@ class ConsumptionSyncMixin:
         Returns:
             bool: True if within 3 days of billing period boundary
         """
-        if not self._contract:
+        if not self._contract or self.periods_unavailable:
             return False
 
         try:
