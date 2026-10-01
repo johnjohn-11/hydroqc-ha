@@ -69,9 +69,9 @@ def _async_migrate_contract_registries(
             )
 
     dev_reg = dr.async_get(hass)
-    device = dev_reg.async_get_device(identifiers={(DOMAIN, old_contract_id)})
-    if device is not None:
-        dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, new_contract_id)})
+    for device in dr.async_entries_for_config_entry(dev_reg, entry_id):
+        if (DOMAIN, old_contract_id) in device.identifiers:
+            dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, new_contract_id)})
 
 
 class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
