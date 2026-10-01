@@ -2,6 +2,8 @@
 
 ### Ajouté
 
+- **Reconfiguration du mode Portail** : l'action « Reconfigurer » d'une entrée permet de changer d'identifiants ou de contrat (par exemple quand Hydro-Québec attribue un nouveau numéro de contrat). L'appareil et les entités existantes sont transférés au nouveau contrat, leurs `entity_id` sont conservés, et le nom du contrat, qui détermine les statistiques de consommation, ne change pas.
+
 ### Modifié
 
 ### Corrigé
