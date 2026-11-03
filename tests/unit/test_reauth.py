@@ -83,25 +83,16 @@ async def test_reauth_refused_password_shows_error(
     assert mock_config_entry.data[CONF_PASSWORD] == "test_password"
 
 
-@pytest.mark.parametrize(
-    "login",
-    [
-        AsyncMock(return_value=False),
-        AsyncMock(side_effect=hydroqc.error.HydroQcHTTPError("Error Fetching", 200)),
-    ],
-    ids=["login_returns_false", "login_redirect_broken"],
-)
 async def test_coordinator_refused_login_raises_auth_failed(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_webuser: MagicMock,
     mock_public_client: MagicMock,
-    login: AsyncMock,
 ) -> None:
     """A refused portal login is reported as an authentication failure."""
     mock_config_entry.add_to_hass(hass)
     mock_webuser.session_expired = True
-    mock_webuser.login = login
+    mock_webuser.login = AsyncMock(return_value=False)
 
     with (
         patch("custom_components.hydroqc.coordinator.base.WebUser", return_value=mock_webuser),
@@ -115,16 +106,20 @@ async def test_coordinator_refused_login_raises_auth_failed(
             await coordinator._async_update_data()
 
 
-async def test_coordinator_portal_error_during_login_is_not_auth_failure(
+@pytest.mark.parametrize("status_code", [403, 503])
+async def test_coordinator_http_error_during_login_is_not_auth_failure(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_webuser: MagicMock,
     mock_public_client: MagicMock,
+    status_code: int,
 ) -> None:
-    """A 5xx during login stays a regular update failure."""
+    """An HTTP error during login stays a regular update failure."""
     mock_config_entry.add_to_hass(hass)
     mock_webuser.session_expired = True
-    mock_webuser.login = AsyncMock(side_effect=hydroqc.error.HydroQcHTTPError("Down", 503))
+    mock_webuser.login = AsyncMock(
+        side_effect=hydroqc.error.HydroQcHTTPError("Error Fetching", status_code)
+    )
 
     with (
         patch("custom_components.hydroqc.coordinator.base.WebUser", return_value=mock_webuser),

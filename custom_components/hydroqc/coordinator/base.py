@@ -474,6 +474,8 @@ class HydroQcDataCoordinator(
             # login() returns a status instead of raising when the credentials
             # are refused. It must not request a verification code: doing so in
             # the background would e-mail a code the user never asked for.
+            # HTTP errors are left to the caller: Hydro-Québec answers some logins
+            # with a transient 403, which must not ask the user for a new password.
             status = await async_login(self._webuser, send_mfa_code=False)
         except MFA_ERRORS as err:
             self._reauth_required = True
@@ -481,11 +483,6 @@ class HydroQcDataCoordinator(
                 "Hydro-Québec asks for an e-mail verification code: reauthenticate "
                 "the integration to enter it"
             ) from err
-        except hydroqc.error.HydroQcHTTPError as err:
-            # A password change request breaks the login redirect chain with a non 5xx status
-            if err.status_code is not None and err.status_code >= 500:
-                raise
-            raise ConfigEntryAuthFailed(f"Hydro-Québec login failed: {err}") from err
 
         outcome = login_outcome(status)
         if outcome == LOGIN_MFA_REQUIRED:

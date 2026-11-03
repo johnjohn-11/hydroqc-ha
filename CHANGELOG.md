@@ -1,3 +1,17 @@
+## [Non publié]
+
+### Ajouté
+
+### Modifié
+
+### Corrigé
+
+- **Fausse réauthentification** : une erreur HTTP d'Hydro-Québec pendant la connexion, comme un 403 temporaire, ne demande plus un nouveau mot de passe. Home Assistant réessaie plus tard. Seul un refus du mot de passe ou une demande de code de vérification demande la réauthentification.
+
+### Retiré
+
+---
+
 ## [0.9.0] - 2026-11-05
 
 ### Ajouté
