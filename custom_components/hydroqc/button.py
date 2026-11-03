@@ -14,7 +14,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN
+from .const import (
+    AUTH_MODE_INFO_PANNES,
+    CONF_AUTH_MODE,
+    CONF_CONTRACT_ID,
+    CONF_CONTRACT_NAME,
+    DOMAIN,
+)
 from .coordinator import HydroQcDataCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,6 +32,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Hydro-Québec button entities from a config entry."""
+    if entry.data[CONF_AUTH_MODE] == AUTH_MODE_INFO_PANNES:
+        return
+
     coordinator: HydroQcDataCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Get integration version from manifest

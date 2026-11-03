@@ -8,7 +8,7 @@
           "auth_mode": "Modo de conexión"
         },
         "data_description": {
-          "auth_mode": "Modo Portal: Inicie sesión para acceso completo a la cuenta. Modo Datos Abiertos: Use solo datos públicos (no requiere inicio de sesión)"
+          "auth_mode": "Modo Portal: inicie sesión para acceder a toda la cuenta, Info-pannes incluido. Modo Datos abiertos: use los datos públicos de las puntas, sin inicio de sesión. Modo Info-pannes: siga los cortes de una dirección, sin inicio de sesión."
         }
       },
       "account": {
@@ -137,6 +137,29 @@
         "data_description": {
           "mfa_code": "El código de un solo uso del correo de Hydro-Québec"
         }
+      },
+      "info_pannes": {
+        "title": "Buscar por dirección",
+        "description": "La integración busca el lugar de consumo en esta dirección con Hydro-Québec. La dirección no se guarda.",
+        "data": {
+          "numero_civique": "Número cívico",
+          "code_postal": "Código postal",
+          "appartement": "Apartamento (opcional)"
+        }
+      },
+      "info_pannes_choix": {
+        "title": "Elegir el lugar de consumo",
+        "description": "Varios lugares de consumo corresponden a esta dirección.",
+        "data": {
+          "lieu_consommation": "Lugar de consumo"
+        }
+      },
+      "info_pannes_nom": {
+        "title": "Nombrar el lugar",
+        "description": "Lugar de consumo {lieu_consommation} encontrado en {adresse}.",
+        "data": {
+          "nom_lieu": "Nombre del lugar (p. ej., Casa, Chalé)"
+        }
       }
     },
     "error": {
@@ -152,14 +175,19 @@
       "mfa_expired": "La verificación expiró. Inténtelo de nuevo para recibir un nuevo código.",
       "mfa_code_resent": "Se envió un nuevo código de verificación a {email}.",
       "mfa_code_resend_failed": "No se pudo solicitar un nuevo código automáticamente. Verifique que {email} sea la dirección correcta e inténtelo de nuevo en un momento.",
-      "mfa_unsupported": "La versión instalada de Hydro-Quebec-API-Wrapper no admite la verificación por correo electrónico. Actualícela y reinicie Home Assistant."
+      "mfa_unsupported": "La versión instalada de Hydro-Quebec-API-Wrapper no admite la verificación por correo electrónico. Actualícela y reinicie Home Assistant.",
+      "adresse_ambigue": "Varios lugares de consumo corresponden a esta dirección y no se pueden distinguir. Agregue el número de apartamento.",
+      "adresse_introuvable": "No se encontró ningún lugar de consumo en esta dirección. Verifique el código postal, el número cívico y el apartamento.",
+      "invalid_code_postal": "El código postal debe tener la forma A1A 1A1"
     },
     "abort": {
       "already_configured": "Este contrato ya está configurado",
       "reconfigure_successful": "Reconfiguración exitosa",
       "reconfigure_portal_only": "Solo las entradas en modo Portal pueden reconfigurarse",
       "missing_contract": "No se encontró el contrato seleccionado",
-      "reauth_successful": "Reautenticación exitosa"
+      "reauth_successful": "Reautenticación exitosa",
+      "lieu_suivi_par_contrat": "Este lugar ya lo sigue un contrato configurado en modo Portal, que incluye sus datos de Info-pannes.",
+      "lieu_deja_configure": "Este lugar de consumo ya se sigue con Info-pannes"
     }
   },
   "options": {
@@ -171,13 +199,15 @@
           "update_interval": "Intervalo de actualización (segundos)",
           "preheat_duration_minutes": "Duración de precalentamiento (minutos)",
           "enable_consumption_sync": "Habilitar sincronización de consumo",
-          "calendar_entity_id": "Entidad de calendario"
+          "calendar_entity_id": "Entidad de calendario",
+          "enable_info_pannes": "Seguir los cortes (Info-pannes)"
         },
         "data_description": {
           "update_interval": "Con qué frecuencia obtener datos de Hydro-Québec (30-600 segundos)",
           "preheat_duration_minutes": "Duración antes de eventos de pico crítico para activar precalentamiento (0-240 minutos)",
           "enable_consumption_sync": "Habilitar para sincronizar datos de consumo por hora para el panel de energía. Requiere recargar la integración para tener efecto.",
-          "calendar_entity_id": "Entidad de calendario para eventos de pico (solo tarifas DPC/DCPC). Requerido para el funcionamiento de los sensores de pico."
+          "calendar_entity_id": "Entidad de calendario para eventos de pico (solo tarifas DPC/DCPC). Requerido para el funcionamiento de los sensores de pico.",
+          "enable_info_pannes": "Agrega al contrato las entidades de Info-pannes de su lugar de consumo, actualizadas cada 3 minutos. Desactivado, las entidades se eliminan y ya no se consulta Info-pannes."
         }
       }
     },
@@ -310,6 +340,99 @@
       },
       "wc_yesterday_evening_peak_saved_consumption": {
         "name": "Consumo ahor. ayer tarde"
+      },
+      "info_pannes": {
+        "name": "Corte",
+        "state": {
+          "aucune_panne": "Ningún corte detectado",
+          "panne_en_cours": "Corte en curso",
+          "panne_majeure": "Corte mayor en curso",
+          "reprise_graduelle": "Restablecimiento gradual del servicio en curso",
+          "service_retabli": "Servicio restablecido",
+          "interruption_planifiee_en_cours": "Interrupción planificada en curso",
+          "interruption_planifiee_a_venir": "Interrupción planificada próxima",
+          "interruption_planifiee_terminee": "Interrupción planificada terminada",
+          "interruption_planifiee_annulee": "Interrupción planificada cancelada",
+          "interruption_planifiee_reportee": "Interrupción planificada aplazada"
+        }
+      },
+      "niveau_urgence": {
+        "name": "Corte nivel de urgencia",
+        "state": {
+          "normal": "Normal",
+          "panne_majeure": "Corte mayor"
+        }
+      },
+      "adresses_touchees": {
+        "name": "Corte direcciones afectadas"
+      },
+      "date_debut": {
+        "name": "Corte inicio"
+      },
+      "date_fin": {
+        "name": "Corte fin"
+      },
+      "statut_intervention": {
+        "name": "Corte estado de la intervención",
+        "state": {
+          "interruption_planifiee_a_venir": "Interrupción planificada próxima",
+          "interruption_planifiee_reportee": "Interrupción planificada aplazada",
+          "interruption_planifiee_annulee": "Interrupción planificada cancelada",
+          "equipe_designee": "Equipo asignado",
+          "evaluation_travaux": "Evaluación de los trabajos",
+          "fin_non_determinee": "Hora de fin no determinada",
+          "reprise_graduelle": "Restablecimiento gradual del servicio en curso",
+          "retablissement_en_evaluation": "Hora de restablecimiento en evaluación",
+          "retablissement_prevu": "Restablecimiento previsto",
+          "service_retabli": "Servicio restablecido",
+          "travaux_en_cours": "Trabajos en curso en la red",
+          "travaux_par_priorite": "Trabajos por orden de prioridad"
+        }
+      },
+      "retablissement": {
+        "name": "Corte restablecimiento",
+        "state": {
+          "en_evaluation": "Hora de restablecimiento en evaluación",
+          "prevu": "Restablecimiento previsto",
+          "en_revision": "Hora de restablecimiento en revisión"
+        }
+      },
+      "cause": {
+        "name": "Corte causa",
+        "state": {
+          "accident_ou_incident": "Accidente o incidente",
+          "amelioration_entretien_reseau": "Reparación o mejora de la red",
+          "bris_equipement": "Avería de equipo",
+          "collision_poteau": "Colisión con un poste",
+          "contact_accidentel": "Contacto accidental con la red",
+          "defaillance_equipement": "Falla de equipo",
+          "dommages_animaux": "Daños causados por animales",
+          "dommages_oiseaux": "Daños causados por aves",
+          "dommages_vegetation": "Daños causados por la vegetación",
+          "entretien_urgent": "Trabajos urgentes en la red",
+          "foudre": "Rayo",
+          "incendie_ou_fuite_gaz": "Incendio o fuga de gas",
+          "indeterminee": "Indeterminada",
+          "mesure_protection": "Medida de protección de la red",
+          "precipitations": "Precipitaciones",
+          "securite_publique": "Protección de la seguridad pública",
+          "securite_travaux": "Seguridad durante los trabajos",
+          "sinistre_naturel": "Desastre natural",
+          "surcharge_reseau": "Sobrecarga de la red",
+          "temperature_extreme": "Temperaturas extremas",
+          "travaux_vegetation_elagage": "Trabajos de control de la vegetación",
+          "usure_materiel": "Desgaste o rotura de material",
+          "vents_violents": "Vientos fuertes"
+        }
+      },
+      "duree": {
+        "name": "Corte duración"
+      },
+      "delai_avant_retablissement": {
+        "name": "Corte tiempo hasta el restablecimiento"
+      },
+      "derniere_maj": {
+        "name": "Corte última actualización"
       }
     },
     "binary_sensor": {
@@ -366,6 +489,60 @@
       },
       "portal_status": {
         "name": "Estado del portal"
+      },
+      "etat_service": {
+        "name": "Corte en curso"
+      },
+      "intervention_planifiee": {
+        "name": "Interrupción planificada",
+        "state": {
+          "on": "Planificada",
+          "off": "Ninguna"
+        }
+      }
+    },
+    "calendar": {
+      "interruptions_planifiees": {
+        "name": "Interrupciones planificadas"
+      }
+    }
+  },
+  "exceptions": {
+    "unexpected_payload": {
+      "message": "La API de Hydro-Québec devolvió una respuesta que no se pudo leer"
+    },
+    "api_status": {
+      "message": "La API de Hydro-Québec respondió con el estado {status}"
+    },
+    "api_server_error": {
+      "message": "La API de Hydro-Québec respondió con el estado {status} después de {attempts} intentos"
+    },
+    "api_timeout": {
+      "message": "La API de Hydro-Québec no respondió después de {attempts} intentos"
+    },
+    "connection_error": {
+      "message": "No se pudo contactar la API de Hydro-Québec después de {attempts} intentos"
+    },
+    "invalid_response": {
+      "message": "La API de Hydro-Québec devolvió una respuesta en un formato inesperado"
+    }
+  },
+  "issues": {
+    "api_schema_changed": {
+      "title": "La estructura de la API de Hydro-Québec cambió",
+      "description": "La integración recibió una respuesta inesperada de la API de Hydro-Québec (campos faltantes: {missing_fields}). Es posible que la integración deba actualizarse para una nueva estructura de la API. Si el problema persiste después de actualizar, repórtelo en el gestor de incidencias."
+    },
+    "api_invalid_response": {
+      "title": "Respuesta inesperada de la API de Hydro-Québec",
+      "description": "La integración recibió de la API de Hydro-Québec una respuesta en un formato inesperado (se esperaba una lista de lugares). Las entidades quedan no disponibles hasta recibir una respuesta válida. Si el problema persiste, verifique si hay una actualización de la integración y repórtelo en el gestor de incidencias."
+    }
+  },
+  "selector": {
+    "auth_mode": {
+      "options": {
+        "portal": "Portal (inicio de sesión en el Espacio Cliente)",
+        "opendata": "Datos abiertos (sin inicio de sesión)",
+        "info_pannes": "Info-pannes (cortes en una dirección, sin inicio de sesión)"
       }
     }
   }

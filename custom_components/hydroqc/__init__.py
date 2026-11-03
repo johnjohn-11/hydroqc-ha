@@ -17,11 +17,21 @@ from homeassistant.exceptions import (
     ConfigEntryNotReady,
     HomeAssistantError,
 )
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.loader import async_get_integration
 
 from . import calendar_manager
-from .const import DOMAIN
+from .const import (
+    AUTH_MODE_INFO_PANNES,
+    CONF_AUTH_MODE,
+    CONF_CONTRACT_NAME,
+    CONF_ENABLE_INFO_PANNES,
+    CONF_LIEU_CONSO,
+    DOMAIN,
+)
 from .coordinator import HydroQcDataCoordinator
+from .info_pannes.coordinator import InfoPannesCoordinator, issue_ids
 
 if TYPE_CHECKING:
     pass
@@ -32,6 +42,14 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
+    Platform.CALENDAR,
+]
+
+# An Info-pannes entry follows a location without an account: it has only the outage entities.
+INFO_PANNES_PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.CALENDAR,
 ]
 
 # Service constants
@@ -64,6 +82,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Hydro-Québec from a config entry."""
     _LOGGER.debug("Setting up Hydro-Québec integration for %s", entry.title)
 
+    if entry.data[CONF_AUTH_MODE] == AUTH_MODE_INFO_PANNES:
+        return await _async_setup_info_pannes_entry(hass, entry)
+
     # Migration: Remove deprecated update_interval from options
     if "update_interval" in entry.options:
         new_options = {k: v for k, v in entry.options.items() if k != "update_interval"}
@@ -83,6 +104,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    if coordinator.is_portal_mode and not coordinator.info_pannes_enabled:
+        _async_remove_contract_info_pannes_entities(hass, entry, coordinator.contract_id)
+    elif coordinator.is_portal_mode and coordinator._contract:
+        lieu = coordinator._contract.consumption_location_id
+        if lieu:
+            coordinator.info_pannes = await _async_contract_info_pannes(
+                hass, entry, coordinator, str(lieu)
+            )
+            # A failure only leaves the outage entities unavailable, the contract keeps working.
+            await coordinator.info_pannes.async_refresh()
+            entry.async_on_unload(coordinator.info_pannes.async_offset_schedule())
+
     # Load persisted calendar event UIDs from storage
     await coordinator.async_load_calendar_uids()
 
@@ -99,6 +132,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _async_options_updated(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Handle options update - trigger immediate calendar sync if configured."""
         coord: HydroQcDataCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+        # Turning Info-pannes on or off adds or removes entities, which takes a reload.
+        if config_entry.options.get(CONF_ENABLE_INFO_PANNES, True) != coord.info_pannes_enabled:
+            hass.config_entries.async_schedule_reload(config_entry.entry_id)
+            return
 
         # Update coordinator with new calendar settings
         coord._calendar_entity_id = config_entry.options.get(
@@ -158,12 +196,87 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+def _async_remove_contract_info_pannes_entities(
+    hass: HomeAssistant, entry: ConfigEntry, contract_id: str
+) -> None:
+    """Remove the contract's Info-pannes entities, so they do not linger as unavailable once the option is off."""
+    ent_reg = er.async_get(hass)
+    prefix = f"{contract_id}_info_pannes_"
+    for entity in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity.unique_id.startswith(prefix):
+            ent_reg.async_remove(entity.entity_id)
+
+
+async def _async_contract_info_pannes(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: HydroQcDataCoordinator, lieu: str
+) -> InfoPannesCoordinator:
+    """Return the Info-pannes tracking of a portal contract's location."""
+    integration = await async_get_integration(hass, DOMAIN)
+    return InfoPannesCoordinator(
+        hass,
+        entry,
+        lieu,
+        f"{coordinator.contract_id}_info_pannes",
+        # The same device info as the contract's other entities: the platforms set up in parallel, so any of them may be the one that creates the device.
+        DeviceInfo(
+            identifiers={(DOMAIN, coordinator.contract_id)},
+            name=f"Hydro-Québec - {entry.data.get(CONF_CONTRACT_NAME, 'OpenData')}",
+            manufacturer="Hydro-Québec",
+            model=coordinator.rate_with_option,
+            sw_version=str(integration.version) if integration.version else "unknown",
+        ),
+    )
+
+
+async def _async_setup_info_pannes_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up an entry that follows one location on Info-pannes, without an account."""
+    coordinator = InfoPannesCoordinator(
+        hass,
+        entry,
+        entry.data[CONF_LIEU_CONSO],
+        entry.entry_id,
+        DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"Hydro-Québec - {entry.title}",
+            manufacturer="Hydro-Québec",
+            model="Info-pannes",
+        ),
+    )
+    await coordinator.async_config_entry_first_refresh()
+    entry.async_on_unload(coordinator.async_offset_schedule())
+    entry.runtime_data = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+    await hass.config_entries.async_forward_entry_setups(entry, INFO_PANNES_PLATFORMS)
+
+    # The services look up hass.data[DOMAIN], which holds no Info-pannes entry but must exist when only Info-pannes entries are configured.
+    hass.data.setdefault(DOMAIN, {})
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_DATA):
+        await _async_register_services(hass)
+    return True
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload an Info-pannes entry, so a rename reaches its device."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the entry's Info-pannes repair issues, which would otherwise stay until a restart."""
+    for issue_id in issue_ids(entry.entry_id):
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Hydro-Québec integration for %s", entry.title)
 
+    if entry.data[CONF_AUTH_MODE] == AUTH_MODE_INFO_PANNES:
+        return await hass.config_entries.async_unload_platforms(entry, INFO_PANNES_PLATFORMS)
+
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         coordinator: HydroQcDataCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        if coordinator.info_pannes:
+            await coordinator.info_pannes.async_shutdown()
         await coordinator.async_shutdown()
 
     return unload_ok
@@ -191,6 +304,13 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                 coordinator = hass.data[DOMAIN].get(entity.config_entry_id)
                 if coordinator:
                     coordinators_to_refresh.add(coordinator)
+                    if coordinator.info_pannes:
+                        coordinators_to_refresh.add(coordinator.info_pannes)
+                elif (
+                    config_entry := hass.config_entries.async_get_entry(entity.config_entry_id)
+                ) and config_entry.data.get(CONF_AUTH_MODE) == AUTH_MODE_INFO_PANNES:
+                    # An Info-pannes entry keeps its coordinator in runtime_data, not in hass.data.
+                    coordinators_to_refresh.add(config_entry.runtime_data)
 
         # Refresh all found coordinators
         for coordinator in coordinators_to_refresh:

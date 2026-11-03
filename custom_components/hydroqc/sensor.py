@@ -17,8 +17,16 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN, SENSORS
+from .const import (
+    AUTH_MODE_INFO_PANNES,
+    CONF_AUTH_MODE,
+    CONF_CONTRACT_ID,
+    CONF_CONTRACT_NAME,
+    DOMAIN,
+    SENSORS,
+)
 from .coordinator import HydroQcDataCoordinator
+from .info_pannes.sensor import info_pannes_sensors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,13 +37,19 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Hydro-Québec sensors from a config entry."""
+    if entry.data[CONF_AUTH_MODE] == AUTH_MODE_INFO_PANNES:
+        async_add_entities(info_pannes_sensors(entry.runtime_data))
+        return
+
     coordinator: HydroQcDataCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Get integration version from manifest
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version) if integration.version else "unknown"
 
-    entities: list[HydroQcSensor] = []
+    entities: list[SensorEntity] = []
+    if coordinator.info_pannes:
+        entities.extend(info_pannes_sensors(coordinator.info_pannes))
 
     for sensor_key, sensor_config_obj in SENSORS.items():
         sensor_config = cast(Mapping[str, Any], sensor_config_obj)

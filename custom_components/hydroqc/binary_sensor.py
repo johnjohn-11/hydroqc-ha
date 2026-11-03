@@ -15,8 +15,16 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
-from .const import BINARY_SENSORS, CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN
+from .const import (
+    AUTH_MODE_INFO_PANNES,
+    BINARY_SENSORS,
+    CONF_AUTH_MODE,
+    CONF_CONTRACT_ID,
+    CONF_CONTRACT_NAME,
+    DOMAIN,
+)
 from .coordinator import HydroQcDataCoordinator
+from .info_pannes.binary_sensor import info_pannes_binary_sensors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,13 +35,19 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Hydro-Québec binary sensors from a config entry."""
+    if entry.data[CONF_AUTH_MODE] == AUTH_MODE_INFO_PANNES:
+        async_add_entities(info_pannes_binary_sensors(entry.runtime_data))
+        return
+
     coordinator: HydroQcDataCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Get integration version from manifest
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version) if integration.version else "unknown"
 
-    entities: list[HydroQcBinarySensor] = []
+    entities: list[BinarySensorEntity] = []
+    if coordinator.info_pannes:
+        entities.extend(info_pannes_binary_sensors(coordinator.info_pannes))
 
     for sensor_key, sensor_config in BINARY_SENSORS.items():
         # Check if sensor is applicable for this rate
