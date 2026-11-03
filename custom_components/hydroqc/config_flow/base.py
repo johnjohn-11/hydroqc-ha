@@ -39,6 +39,7 @@ from ..auth import (
     webuser_auth_kwargs,
 )
 from ..const import (
+    AUTH_MODE_INFO_PANNES,
     AUTH_MODE_OPENDATA,
     AUTH_MODE_PORTAL,
     CONF_ACCOUNT_ID,
@@ -58,6 +59,7 @@ from ..const import (
 )
 from ..session import async_save_session as save_session_state, stage_pending_session
 from .helpers import SECTOR_MAPPING, fetch_available_sectors, fetch_offers_for_sector
+from .info_pannes import InfoPannesFlowMixin
 from .options import HydroQcOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,7 +95,7 @@ def _async_migrate_contract_registries(
             dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, new_contract_id)})
 
 
-class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class HydroQcConfigFlow(InfoPannesFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Hydro-Québec."""
 
     VERSION = 1
@@ -115,6 +117,8 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Session captured during the initial setup: the config entry does not
         # exist yet, so it is written once HA creates it.
         self._pending_session_state: dict[str, Any] | None = None
+        self._info_pannes_lieux = {}
+        self._info_pannes_lieu = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step - choose auth mode."""
@@ -125,20 +129,13 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     {
                         vol.Required(CONF_AUTH_MODE): SelectSelector(
                             SelectSelectorConfig(
-                                options=cast(
-                                    list[SelectOptionDict],
-                                    [
-                                        {
-                                            "value": AUTH_MODE_PORTAL,
-                                            "label": "Portal Mode (requires login)",
-                                        },
-                                        {
-                                            "value": AUTH_MODE_OPENDATA,
-                                            "label": "OpenData Mode (no login required)",
-                                        },
-                                    ],
-                                ),
+                                options=[
+                                    AUTH_MODE_PORTAL,
+                                    AUTH_MODE_OPENDATA,
+                                    AUTH_MODE_INFO_PANNES,
+                                ],
                                 mode=SelectSelectorMode.LIST,
+                                translation_key="auth_mode",
                             )
                         )
                     }
@@ -149,6 +146,8 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if self._auth_mode == AUTH_MODE_PORTAL:
             return await self.async_step_account()
+        if self._auth_mode == AUTH_MODE_INFO_PANNES:
+            return await self.async_step_info_pannes()
         return await self.async_step_opendata()
 
     async def async_step_account(
@@ -926,6 +925,12 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             description_placeholders={"contract_id": old_contract_id},
         )
+
+    @classmethod
+    @callback
+    def async_supports_options_flow(cls, config_entry: config_entries.ConfigEntry) -> bool:
+        """Return whether the entry has options: an Info-pannes entry has none."""
+        return config_entry.data.get(CONF_AUTH_MODE) != AUTH_MODE_INFO_PANNES
 
     @staticmethod
     def async_get_options_flow(

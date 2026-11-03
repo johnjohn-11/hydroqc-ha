@@ -51,6 +51,7 @@ from ..const import (
     CONF_CONTRACT_ID,
     CONF_CONTRACT_NAME,
     CONF_CUSTOMER_ID,
+    CONF_ENABLE_INFO_PANNES,
     CONF_PREHEAT_DURATION,
     CONF_RATE,
     CONF_RATE_OPTION,
@@ -59,6 +60,7 @@ from ..const import (
     NEW_CONTRACT_GRACE_DAYS,
     NEW_CONTRACT_PERIODS_RETRY_HOURS,
 )
+from ..info_pannes.coordinator import InfoPannesCoordinator
 from ..public_data_client import PublicDataClient
 from ..session import (
     async_load_session,
@@ -94,6 +96,11 @@ class HydroQcDataCoordinator(
         self._customer: Customer | None = None
         self._account: Account | None = None
         self._contract: Contract | None = None
+
+        # Info-pannes tracking of the contract's location, set up by async_setup_entry once the contract is known
+        self.info_pannes: InfoPannesCoordinator | None = None
+        # Read once, so the options listener can tell whether the option changed
+        self.info_pannes_enabled: bool = entry.options.get(CONF_ENABLE_INFO_PANNES, True)
 
         # Public data client for peak data (always used)
         rate_for_client = f"{self._rate}{self._rate_option}"
@@ -631,6 +638,15 @@ class HydroQcDataCoordinator(
 
                 # Fetch outages
                 await self._contract.refresh_outages()
+
+                # The contract was unknown at setup (portal offline), so its Info-pannes entities were not created: a reload creates them.
+                if (
+                    self._first_refresh_done
+                    and self.info_pannes_enabled
+                    and self.info_pannes is None
+                    and self._contract.consumption_location_id
+                ):
+                    self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
 
                 # Rate-specific data fetching
                 if self.rate == "D" and self.rate_option == "CPC":

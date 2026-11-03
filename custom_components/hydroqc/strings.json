@@ -8,7 +8,7 @@
           "auth_mode": "Connection Mode"
         },
         "data_description": {
-          "auth_mode": "Portal Mode: Sign in for full account access. OpenData Mode: Use public data only (no login required)"
+          "auth_mode": "Portal mode: log in for full account access, Info-pannes included. OpenData mode: use the public peak data, no login required. Info-pannes mode: follow the outages at an address, no login required."
         }
       },
       "account": {
@@ -127,6 +127,29 @@
         "data_description": {
           "mfa_code": "The one-time code from the Hydro-Québec e-mail"
         }
+      },
+      "info_pannes": {
+        "title": "Search by address",
+        "description": "The integration looks up the consumption location at this address with Hydro-Québec. The address is not stored.",
+        "data": {
+          "numero_civique": "Civic number",
+          "code_postal": "Postal code",
+          "appartement": "Apartment (optional)"
+        }
+      },
+      "info_pannes_choix": {
+        "title": "Choose the consumption location",
+        "description": "Several consumption locations match this address.",
+        "data": {
+          "lieu_consommation": "Consumption location"
+        }
+      },
+      "info_pannes_nom": {
+        "title": "Name the location",
+        "description": "Consumption location {lieu_consommation} found at {adresse}.",
+        "data": {
+          "nom_lieu": "Location name (e.g., Home, Cottage)"
+        }
       }
     },
     "error": {
@@ -140,14 +163,19 @@
       "mfa_expired": "The verification step expired. Try again to receive a new code.",
       "mfa_code_resent": "A new verification code was sent to {email}.",
       "mfa_code_resend_failed": "Could not request a new code automatically. Check that {email} is the right address and try again in a moment.",
-      "mfa_unsupported": "The installed Hydro-Quebec API Wrapper does not support e-mail verification. Update it and restart Home Assistant."
+      "mfa_unsupported": "The installed Hydro-Quebec API Wrapper does not support e-mail verification. Update it and restart Home Assistant.",
+      "adresse_ambigue": "Several consumption locations match this address and cannot be told apart. Add the apartment number.",
+      "adresse_introuvable": "No consumption location found at this address. Check the postal code, civic number and apartment.",
+      "invalid_code_postal": "The postal code must be in the A1A 1A1 form"
     },
     "abort": {
       "already_configured": "This contract is already configured",
       "reconfigure_successful": "Reconfiguration successful",
       "reconfigure_portal_only": "Only Portal Mode entries can be reconfigured",
       "missing_contract": "The selected contract was not found",
-      "reauth_successful": "Reauthentication successful"
+      "reauth_successful": "Reauthentication successful",
+      "lieu_suivi_par_contrat": "This location is already followed by a contract set up in Portal mode, which includes its Info-pannes data.",
+      "lieu_deja_configure": "This consumption location is already followed by Info-pannes"
     }
   },
   "options": {
@@ -159,13 +187,15 @@
           "update_interval": "Update Interval (seconds)",
           "preheat_duration_minutes": "Pre-heat Duration (minutes)",
           "enable_consumption_sync": "Enable consumption synchronization",
-          "calendar_entity_id": "Calendar Entity (optional)"
+          "calendar_entity_id": "Calendar Entity (optional)",
+          "enable_info_pannes": "Follow outages (Info-pannes)"
         },
         "data_description": {
           "update_interval": "How often to fetch data from Hydro-Québec (30-600 seconds)",
           "preheat_duration_minutes": "Duration before critical peak events to trigger pre-heating (0-240 minutes)",
           "enable_consumption_sync": "Enable to sync hourly consumption data for the energy dashboard. Requires integration reload to take effect.",
-          "calendar_entity_id": "Calendar entity for peak events (DPC/DCPC rates only). Leave empty to disable."
+          "calendar_entity_id": "Calendar entity for peak events (DPC/DCPC rates only). Leave empty to disable.",
+          "enable_info_pannes": "Adds the Info-pannes entities of the contract's consumption location, updated every 3 minutes. When off, the entities are removed and Info-pannes is no longer queried."
         },
         "sections": {
           "advanced": {
@@ -188,6 +218,157 @@
         "mobile": "Mobile app (recommended): session renewed automatically (90 days)",
         "web": "Web portal: new verification code every day (24 hours)"
       }
+    },
+    "auth_mode": {
+      "options": {
+        "portal": "Portal (Customer Space login)",
+        "opendata": "OpenData (no login required)",
+        "info_pannes": "Info-pannes (outages at an address, no login required)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "info_pannes": {
+        "name": "Outage",
+        "state": {
+          "aucune_panne": "No outage detected",
+          "panne_en_cours": "Ongoing outage",
+          "panne_majeure": "Ongoing major outage",
+          "reprise_graduelle": "Gradual service restoration underway",
+          "service_retabli": "Power restored",
+          "interruption_planifiee_en_cours": "Planned service interruption under way",
+          "interruption_planifiee_a_venir": "Upcoming planned service interruption",
+          "interruption_planifiee_terminee": "Planned service interruption completed",
+          "interruption_planifiee_annulee": "Planned service interruption cancelled",
+          "interruption_planifiee_reportee": "Planned service interruption postponed"
+        }
+      },
+      "niveau_urgence": {
+        "name": "Outage urgency",
+        "state": {
+          "normal": "Normal",
+          "panne_majeure": "Major outage"
+        }
+      },
+      "adresses_touchees": {
+        "name": "Outage addresses affected"
+      },
+      "date_debut": {
+        "name": "Outage start"
+      },
+      "date_fin": {
+        "name": "Outage end"
+      },
+      "statut_intervention": {
+        "name": "Outage crew status",
+        "state": {
+          "interruption_planifiee_a_venir": "Upcoming planned service interruption",
+          "interruption_planifiee_reportee": "Planned service interruption postponed",
+          "interruption_planifiee_annulee": "Planned service interruption cancelled",
+          "equipe_designee": "Crew assigned",
+          "evaluation_travaux": "Assessment of work required",
+          "fin_non_determinee": "End time undetermined",
+          "reprise_graduelle": "Gradual service restoration underway",
+          "retablissement_en_evaluation": "Estimated restoration time under analysis",
+          "retablissement_prevu": "Power restoration expected",
+          "service_retabli": "Power restored",
+          "travaux_en_cours": "Work in progress on the power grid",
+          "travaux_par_priorite": "Work proceeding in order of priority"
+        }
+      },
+      "retablissement": {
+        "name": "Outage restoration",
+        "state": {
+          "en_evaluation": "Estimated restoration time under analysis",
+          "prevu": "Power restoration expected",
+          "en_revision": "Estimated restoration time under review"
+        }
+      },
+      "cause": {
+        "name": "Outage cause",
+        "state": {
+          "accident_ou_incident": "Accident or incident",
+          "amelioration_entretien_reseau": "Power system repair or improvement",
+          "bris_equipement": "Equipment failure",
+          "collision_poteau": "Collision with a pole",
+          "contact_accidentel": "Accidental contact with the power system",
+          "defaillance_equipement": "Equipment malfunction",
+          "dommages_animaux": "Damage caused by animals",
+          "dommages_oiseaux": "Damage caused by birds",
+          "dommages_vegetation": "Damage caused by vegetation",
+          "entretien_urgent": "Emergency work on the power system",
+          "foudre": "Lightning",
+          "incendie_ou_fuite_gaz": "Fire or gas leak",
+          "indeterminee": "Unknown",
+          "mesure_protection": "System protection measure",
+          "precipitations": "Precipitation",
+          "securite_publique": "Protection of public safety",
+          "securite_travaux": "Safety during work",
+          "sinistre_naturel": "Natural disaster",
+          "surcharge_reseau": "Grid overload",
+          "temperature_extreme": "Extreme temperatures",
+          "travaux_vegetation_elagage": "Vegetation control work",
+          "usure_materiel": "Material wear and tear or breakdown",
+          "vents_violents": "High winds"
+        }
+      },
+      "duree": {
+        "name": "Outage duration"
+      },
+      "delai_avant_retablissement": {
+        "name": "Outage time to restore"
+      },
+      "derniere_maj": {
+        "name": "Outage last update"
+      }
+    },
+    "binary_sensor": {
+      "etat_service": {
+        "name": "Ongoing outage"
+      },
+      "intervention_planifiee": {
+        "name": "Planned service interruption",
+        "state": {
+          "on": "Scheduled",
+          "off": "None"
+        }
+      }
+    },
+    "calendar": {
+      "interruptions_planifiees": {
+        "name": "Planned service interruptions"
+      }
+    }
+  },
+  "exceptions": {
+    "unexpected_payload": {
+      "message": "The Hydro-Québec API returned a response that could not be read"
+    },
+    "api_status": {
+      "message": "The Hydro-Québec API answered with status {status}"
+    },
+    "api_server_error": {
+      "message": "The Hydro-Québec API answered with status {status} after {attempts} attempts"
+    },
+    "api_timeout": {
+      "message": "The Hydro-Québec API did not answer after {attempts} attempts"
+    },
+    "connection_error": {
+      "message": "Unable to reach the Hydro-Québec API after {attempts} attempts"
+    },
+    "invalid_response": {
+      "message": "The Hydro-Québec API returned an unexpected response format"
+    }
+  },
+  "issues": {
+    "api_schema_changed": {
+      "title": "Hydro-Québec API structure changed",
+      "description": "The integration received an unexpected response from the Hydro-Québec API (missing fields: {missing_fields}). The integration may need to be updated to match a new API structure. If this persists after updating, please report it on the issue tracker."
+    },
+    "api_invalid_response": {
+      "title": "Unexpected Hydro-Québec API response",
+      "description": "The integration received a response from the Hydro-Québec API in an unexpected format (a list of locations was expected). Entities stay unavailable until a valid response arrives. If this persists, check whether an integration update is available and report it on the issue tracker."
     }
   }
 }

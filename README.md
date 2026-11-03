@@ -45,6 +45,7 @@ Intégration **native** pour Home Assistant qui vous permet de :
 - Recevoir des alertes de périodes de pointe critiques
 - Affichez vos crédits hivernaux (tarif DCPC)
 - Automatiser vos appareils pendant les périodes de pointe
+- Suivre les pannes et les interruptions planifiées d'Info-pannes, pour votre contrat ou toute autre adresse
 - Utiliser un calendrier intégré pour une fiabilité maximale
 
 ## Pourquoi cette integration ?
@@ -61,6 +62,7 @@ L'intégration calendrier offre **plusieurs niveaux de protection** pour vos aut
 
 - **Tous les tarifs supportés** : D, DT, DPC (Flex-D), DCPC (Crédits hivernaux)
 - **Mode sans compte** : Surveillez les pointes sans identifiants
+- **Info-pannes** : Suivez les pannes d'une adresse au Québec, même sans compte
 - **Multi-contrats** : Gérez maison, chalet, etc.
 - **Blueprints prêt-à-l'emploi** : Automatisations optimisées incluses
 
@@ -110,7 +112,7 @@ Cliquez sur le badge ci-dessus, puis :
 
 ### Option 1 : Avec compte Hydro-Québec (Accès complet)
 
-Accès à **toutes les données** : consommation, facturation, pointes, crédits hivernaux
+Accès à **toutes les données** : consommation, facturation, pointes, crédits hivernaux, ainsi que les [capteurs Info-pannes](#capteurs-info-pannes) du lieu du contrat
 
 1. **Paramètres** → **Appareils et services** → **+ Ajouter une intégration**
 2. Recherchez **"Hydro-Québec"**
@@ -129,6 +131,18 @@ Uniquement les **alertes de pointe** sans identifiants
 2. Choisissez **"Données de pointe uniquement"**
 3. Sélectionnez votre tarif
 4. Les alertes de pointe sont actives !
+
+### Option 3 : Info-pannes (Sans compte)
+
+Uniquement les **pannes et interruptions planifiées** d'une adresse, sans identifiants. Utile pour un chalet, la maison de vos parents ou tout lieu qui n'est pas dans votre Espace client.
+
+1. Suivez les étapes 1-2 ci-dessus
+2. Choisissez **"Info-pannes"**
+3. Entrez le numéro civique et le code postal, et l'appartement au besoin
+4. Si plusieurs lieux correspondent, choisissez le bon dans la liste
+5. Nommez le lieu (ex. : Chalet)
+
+L'adresse sert seulement à trouver le lieu de consommation et n'est pas conservée. Un lieu déjà suivi par un contrat en mode authentifié est refusé, puisque ce contrat a déjà ses capteurs Info-pannes.
 
 ### Changer de contrat ou de mot de passe
 
@@ -325,6 +339,32 @@ Les blueprints incluent automatiquement un délai aléatoire (30 secondes à 5 m
 | **Coût** | Moyenne du coût par kWh, facture quotidienne |
 | **Température** | Température moyenne pour la période |
 | **Panne** | Panne prochaine/actuelle avec détails |
+
+### Capteurs Info-pannes
+
+Créés pour le lieu d'un contrat en mode authentifié et pour chaque lieu ajouté en mode Info-pannes. Pour un contrat, l'option **"Suivre les pannes (Info-pannes)"** de l'intégration, activée par défaut, permet de les retirer. Les états suivent ceux du site Info-pannes d'Hydro-Québec. L'API est interrogée aux 3 minutes, et à chaque minute pendant une panne.
+
+| Entité | Description |
+|--------|-------------|
+| **Panne** | État global : aucune panne, panne en cours, panne majeure, rétablissement graduel, service rétabli ou interruption planifiée (à venir, en cours, terminée, annulée, reportée) |
+| **Panne en cours** | Allumé quand le courant est coupé ou qu'une interruption planifiée est en cours |
+| **Interruption planifiée** | Allumé quand une interruption planifiée est à venir ou en cours, avec ses dates en attributs |
+| **Interruptions planifiées** | Calendrier des interruptions planifiées |
+
+Les détails sont classés dans la section diagnostic de l'appareil :
+
+| Entité | Description |
+|--------|-------------|
+| **Panne statut intervention** | Étape des travaux : évaluation, équipe désignée, travaux en cours, rétablissement prévu, etc. |
+| **Panne rétablissement** | Heure de rétablissement en évaluation, prévue ou en révision |
+| **Panne cause** | Cause de l'interruption, avec une description en attribut |
+| **Panne niveau urgence** | Normal ou panne majeure |
+| **Panne adresses touchées** | Nombre d'adresses touchées |
+| **Panne début** / **Panne fin** | Début et fin, réelle ou estimée |
+| **Panne durée** / **Panne délai rétablissement** | Durée écoulée et temps restant estimé |
+| **Panne dernière MAJ** | Désactivé par défaut |
+
+Chaque changement des données d'un lieu déclenche aussi l'événement `hydroqc_outage_data_changed`, qui contient la réponse complète de l'API.
 
 ### Capteurs spécifiques aux tarifs
 

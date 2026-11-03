@@ -24,6 +24,7 @@ from ..const import (
     CONF_AUTH_CLIENT,
     CONF_CALENDAR_ENTITY_ID,
     CONF_ENABLE_CONSUMPTION_SYNC,
+    CONF_ENABLE_INFO_PANNES,
     CONF_PREHEAT_DURATION,
     CONF_RATE,
     CONF_RATE_OPTION,
@@ -95,6 +96,12 @@ class HydroQcOptionsFlow(config_entries.OptionsFlow):
                         CONF_ENABLE_CONSUMPTION_SYNC,
                         self.config_entry.data.get(CONF_ENABLE_CONSUMPTION_SYNC, True),
                     ),
+                )
+            ] = bool
+            schema_dict[
+                vol.Optional(
+                    CONF_ENABLE_INFO_PANNES,
+                    default=self.config_entry.options.get(CONF_ENABLE_INFO_PANNES, True),
                 )
             ] = bool
 

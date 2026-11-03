@@ -10,6 +10,7 @@ CONF_ACCOUNT_ID: Final = "account_id"
 CONF_CUSTOMER_ID: Final = "customer_id"
 CONF_CONTRACT_NAME: Final = "contract_name"
 CONF_RATE: Final = "rate"
+CONF_LIEU_CONSO: Final = "lieu_consommation"
 CONF_RATE_OPTION: Final = "rate_option"
 CONF_AUTH_MODE: Final = "auth_mode"
 CONF_PREHEAT_DURATION: Final = "preheat_duration_minutes"
@@ -17,6 +18,7 @@ CONF_HISTORY_DAYS: Final = "history_days"
 CONF_CALENDAR_ENTITY_ID: Final = "calendar_entity_id"
 CONF_ENABLE_CONSUMPTION_SYNC: Final = "enable_consumption_sync"
 CONF_MFA_CODE: Final = "mfa_code"
+CONF_ENABLE_INFO_PANNES: Final = "enable_info_pannes"
 CONF_AUTH_CLIENT: Final = "auth_client"
 
 # Options form sections
@@ -25,6 +27,7 @@ SECTION_ADVANCED: Final = "advanced"
 # Auth modes
 AUTH_MODE_PORTAL: Final = "portal"
 AUTH_MODE_OPENDATA: Final = "opendata"
+AUTH_MODE_INFO_PANNES: Final = "info_pannes"
 
 # Hydro-Québec login clients (the wrapper's ``auth_client`` argument)
 AUTH_CLIENT_WEB: Final = "web"

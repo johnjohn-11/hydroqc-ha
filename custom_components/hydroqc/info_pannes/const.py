@@ -1,0 +1,301 @@
+"""Constants for the Info-pannes entities.
+
+Enumerated sensors expose language-neutral slugs as their state, following the Home Assistant ``SensorDeviceClass.ENUM`` convention. The code-to-slug maps live here; the human-readable labels live in ``strings.json`` under ``entity.sensor.<translation_key>.state`` and are translated per language.
+"""
+
+from ..const import DOMAIN
+
+CONF_LIEU_CONSO = "lieu_consommation"
+
+# Bus event fired whenever a location's API payload changes. Carries the full payload so users can log or react to changes from their own automations.
+EVENT_DATA_CHANGED = f"{DOMAIN}_outage_data_changed"
+
+UPDATE_INTERVAL = 180  # seconds — default polling interval (no active outage)
+
+ATTRIBUTION = "Données fournies par Hydro-Québec"
+
+# ---------------------------------------------------------------------------
+# sensor.*_info_pannes
+# ---------------------------------------------------------------------------
+
+# Every state the info-pannes sensor can report. A value outside this list is rejected by Home Assistant, so the sensor returns None rather than inventing a state for data it does not recognize.
+INFO_PANNES_OPTIONS = [
+    "aucune_panne",
+    "panne_en_cours",
+    "panne_majeure",
+    "reprise_graduelle",
+    "service_retabli",
+    "interruption_planifiee_en_cours",
+    "interruption_planifiee_a_venir",
+    "interruption_planifiee_terminee",
+    "interruption_planifiee_annulee",
+    "interruption_planifiee_reportee",
+]
+
+# ---------------------------------------------------------------------------
+# sensor.*_niveau_urgence
+# ---------------------------------------------------------------------------
+
+# The Info-pannes site names "M" panne majeure and "P" PURS, and handles both the same way. Only "N" and "P" have been observed in the API so far.
+NIVEAU_URGENCE_CODES = {
+    "N": "normal",
+    "M": "panne_majeure",
+    "P": "panne_majeure",
+}
+
+NIVEAU_URGENCE_MAJEURS = {"M", "P"}
+
+NIVEAU_URGENCE_OPTIONS = ["normal", "panne_majeure"]
+
+# ---------------------------------------------------------------------------
+# sensor.*_cause
+# ---------------------------------------------------------------------------
+
+# codeCause → slug, as the Info-pannes site maps them. Any other code, 58 included, is "Indéterminée" on the site too. The raw code is exposed as the ``code_cause`` attribute so no information is lost by mapping several codes onto one slug.
+CAUSE_CODES = {
+    "11": "defaillance_equipement",
+    "12": "surcharge_reseau",
+    "13": "bris_equipement",
+    "14": "bris_equipement",
+    "15": "bris_equipement",
+    "72": "bris_equipement",
+    "79": "bris_equipement",
+    "21": "foudre",
+    "22": "precipitations",
+    "24": "sinistre_naturel",
+    "25": "vents_violents",
+    "26": "temperature_extreme",
+    "31": "accident_ou_incident",
+    "32": "accident_ou_incident",
+    "41": "accident_ou_incident",
+    "43": "accident_ou_incident",
+    "56": "accident_ou_incident",
+    "57": "accident_ou_incident",
+    "33": "usure_materiel",
+    "34": "incendie_ou_fuite_gaz",
+    "42": "contact_accidentel",
+    "55": "contact_accidentel",
+    "44": "securite_publique",
+    "51": "dommages_vegetation",
+    "52": "dommages_oiseaux",
+    "53": "dommages_animaux",
+    "54": "collision_poteau",
+    "60": "entretien_urgent",
+    "70": "entretien_urgent",
+    "61": "amelioration_entretien_reseau",
+    "62": "amelioration_entretien_reseau",
+    "63": "amelioration_entretien_reseau",
+    "64": "amelioration_entretien_reseau",
+    "65": "amelioration_entretien_reseau",
+    "67": "amelioration_entretien_reseau",
+    "68": "amelioration_entretien_reseau",
+    "69": "amelioration_entretien_reseau",
+    "71": "amelioration_entretien_reseau",
+    "66": "securite_travaux",
+    "73": "mesure_protection",
+    "74": "mesure_protection",
+    "77": "travaux_vegetation_elagage",
+    "78": "travaux_vegetation_elagage",
+}
+
+CAUSE_OPTIONS = [
+    "accident_ou_incident",
+    "amelioration_entretien_reseau",
+    "bris_equipement",
+    "collision_poteau",
+    "contact_accidentel",
+    "defaillance_equipement",
+    "dommages_animaux",
+    "dommages_oiseaux",
+    "dommages_vegetation",
+    "entretien_urgent",
+    "foudre",
+    "incendie_ou_fuite_gaz",
+    "indeterminee",
+    "mesure_protection",
+    "precipitations",
+    "securite_publique",
+    "securite_travaux",
+    "sinistre_naturel",
+    "surcharge_reseau",
+    "temperature_extreme",
+    "travaux_vegetation_elagage",
+    "usure_materiel",
+    "vents_violents",
+]
+
+# ---------------------------------------------------------------------------
+# sensor.*_statut_intervention
+# ---------------------------------------------------------------------------
+
+# codeIntervention → slug, following the Info-pannes steps: N (aucune) and A (attribuée) are both shown as the assessment step, R (en route) as "Équipe désignée".
+INTERVENTION_CODES = {
+    "N": "evaluation_travaux",
+    "A": "evaluation_travaux",
+    "R": "equipe_designee",
+    "L": "travaux_en_cours",
+}
+
+# Overrides INTERVENTION_CODES["L"] for major outages (niveauUrgence in NIVEAU_URGENCE_MAJEURS).
+INTERVENTION_CODES_MAJEUR = {
+    "L": "travaux_par_priorite",
+}
+
+# typeFinPrevue → slug. U, D, P: documented by HQ. F, E, X: observed empirically; meanings are provisional.
+TYPE_FIN_PREVUE_CODES = {
+    "U": "retablissement_en_evaluation",  # no estimated date
+    "D": "retablissement_prevu",  # reliable date
+    "P": "retablissement_prevu",  # major outage, delays not guaranteed
+    "F": "fin_non_determinee",  # major outage, no dateFinEstimeeMax
+    "E": "retablissement_prevu",  # major outage, dateFinEstimeeMax present
+    "X": "retablissement_prevu",  # observed near end of major outage
+}
+
+# The intervention-status sensor also reuses several info-pannes slugs when the interruption is over, postponed, upcoming, or being gradually restored.
+STATUT_INTERVENTION_OPTIONS = [
+    "interruption_planifiee_a_venir",
+    "interruption_planifiee_reportee",
+    "interruption_planifiee_annulee",
+    "equipe_designee",
+    "evaluation_travaux",
+    "fin_non_determinee",
+    "reprise_graduelle",
+    "retablissement_en_evaluation",
+    "retablissement_prevu",
+    "service_retabli",
+    "travaux_en_cours",
+    "travaux_par_priorite",
+]
+
+# ---------------------------------------------------------------------------
+# Descriptions (the unrecorded "description" attribute)
+# ---------------------------------------------------------------------------
+
+# One sentence or two per cause, restating in our own words the explanation the Info-pannes site gives. Home Assistant does not translate attribute values, so each text has an English counterpart (the *_EN maps) picked from the configured language.
+CAUSE_DESCRIPTIONS = {
+    "defaillance_equipement": "Un équipement du réseau de distribution a mal fonctionné à cause de son usure normale, sans cause externe.",
+    "surcharge_reseau": "La demande d'électricité a dépassé ce que l'équipement touché peut supporter.",
+    "bris_equipement": "Un équipement a été endommagé ou a mal fonctionné à cause d'un défaut de fabrication d'une de ses pièces.",
+    "foudre": "La foudre est tombée pendant un orage, a coupé le service et a pu endommager un équipement du réseau.",
+    "precipitations": "De la neige, de la pluie ou du verglas a coupé le service et a pu endommager un équipement du réseau.",
+    "sinistre_naturel": "Un phénomène naturel, comme une inondation, un glissement de terrain, de l'érosion, un séisme ou des glaces, a touché le réseau.",
+    "vents_violents": "Des vents forts ont coupé le service et ont pu endommager un équipement du réseau.",
+    "temperature_extreme": "Une chaleur ou un froid extrême a coupé le service et a pu endommager un équipement du réseau.",
+    "accident_ou_incident": "Un événement imprévu est survenu sur le réseau, par exemple une erreur pendant l'essai d'un équipement ou une isolation abîmée par des produits chimiques ou du sel.",
+    "usure_materiel": "Une pièce du réseau s'est détériorée avec le temps, la pourriture ou une réaction chimique, au point de briser ou de nuire au fonctionnement de l'équipement.",
+    "incendie_ou_fuite_gaz": "Un incendie, une fuite de gaz ou un autre événement a amené les autorités à demander d'urgence la coupure du service dans le secteur.",
+    "contact_accidentel": "Une personne ou un objet a touché par accident un équipement du réseau.",
+    "securite_publique": "Les autorités ont demandé une coupure d'urgence pour protéger le public ou le personnel.",
+    "dommages_vegetation": "Un arbre ou une branche, cassé, plié ou non élagué, a touché un équipement du réseau et l'a endommagé.",
+    "dommages_oiseaux": "Un oiseau a touché un équipement du réseau et causé un court-circuit ou une mise à la terre.",
+    "dommages_animaux": "Un animal autre qu'un oiseau, comme un écureuil ou un rongeur, a touché un équipement du réseau et causé un court-circuit ou une mise à la terre.",
+    "collision_poteau": "Un véhicule a heurté un poteau ou un autre équipement du réseau.",
+    "entretien_urgent": "Hydro-Québec a coupé le service pour faire d'urgence, en toute sécurité, des travaux d'entretien, de réparation ou de modification du réseau.",
+    "amelioration_entretien_reseau": "Hydro-Québec a coupé le service pour faire, en toute sécurité, des travaux d'entretien, de réparation ou de modification du réseau.",
+    "securite_travaux": "Le service est coupé pour protéger le public pendant des travaux, comme le déplacement d'une maison ou des travaux faits par d'autres.",
+    "mesure_protection": "Hydro-Québec a coupé le service d'urgence pour éviter des bris importants qui pourraient causer une panne majeure.",
+    "travaux_vegetation_elagage": "Le service est coupé pour permettre d'abattre ou d'élaguer des arbres près du réseau en toute sécurité.",
+    "indeterminee": "L'origine de l'interruption n'est pas encore connue.",
+}
+
+CAUSE_DESCRIPTIONS_EN = {
+    "defaillance_equipement": "A piece of distribution equipment malfunctioned through normal wear, with no external cause.",
+    "surcharge_reseau": "Electricity demand exceeded what the affected equipment can handle.",
+    "bris_equipement": "A piece of equipment was damaged or malfunctioned because of a manufacturing defect in one of its parts.",
+    "foudre": "Lightning struck during a storm, cut the power and may have damaged grid equipment.",
+    "precipitations": "Snow, rain or freezing rain cut the power and may have damaged grid equipment.",
+    "sinistre_naturel": "A natural event, such as a flood, landslide, erosion, earthquake or ice, affected the grid.",
+    "vents_violents": "High winds cut the power and may have damaged grid equipment.",
+    "temperature_extreme": "Extreme heat or cold cut the power and may have damaged grid equipment.",
+    "accident_ou_incident": "An unexpected event occurred on the grid, for example an error while testing equipment or insulation damaged by chemicals or salt.",
+    "usure_materiel": "A part of the grid deteriorated over time, through rot or a chemical reaction, until it broke or impaired the equipment.",
+    "incendie_ou_fuite_gaz": "A fire, a gas leak or another event led the authorities to request an emergency power cut in the area.",
+    "contact_accidentel": "A person or an object accidentally touched grid equipment.",
+    "securite_publique": "The authorities requested an emergency power cut to protect the public or workers.",
+    "dommages_vegetation": "A tree or branch, broken, bent or not pruned, touched grid equipment and damaged it.",
+    "dommages_oiseaux": "A bird touched grid equipment and caused a short circuit or a ground fault.",
+    "dommages_animaux": "An animal other than a bird, such as a squirrel or a rodent, touched grid equipment and caused a short circuit or a ground fault.",
+    "collision_poteau": "A vehicle hit a pole or other grid equipment.",
+    "entretien_urgent": "Hydro-Québec cut the power to carry out urgent maintenance, repair or modification work on the grid safely.",
+    "amelioration_entretien_reseau": "Hydro-Québec cut the power to carry out maintenance, repair or modification work on the grid safely.",
+    "securite_travaux": "The power is cut to protect the public during work, such as moving a house or work done by others.",
+    "mesure_protection": "Hydro-Québec cut the power urgently to prevent major damage that could cause a major outage.",
+    "travaux_vegetation_elagage": "The power is cut so that trees near the grid can be felled or pruned safely.",
+    "indeterminee": "The origin of the interruption is not known yet.",
+}
+
+# Same idea for the intervention steps. States without an entry expose no description.
+STATUT_INTERVENTION_DESCRIPTIONS = {
+    "evaluation_travaux": "Hydro-Québec tente de rétablir le service à distance, évalue les dommages et les travaux à faire, puis envoie les équipes selon les priorités. La durée de cette évaluation varie d'une panne à l'autre.",
+    "equipe_designee": "Une équipe est chargée des travaux. Elle peut s'occuper de plusieurs pannes à la fois et être envoyée ailleurs si une panne plus urgente survient.",
+    "travaux_en_cours": "L'équipe constate l'ampleur des travaux une fois sur place. L'heure de rétablissement peut changer selon ce qu'elle observe.",
+    "travaux_par_priorite": "Pendant une panne majeure, les travaux suivent un ordre de priorité : les dangers signalés au 911, les hôpitaux et les services d'urgence passent en premier.",
+    "retablissement_en_evaluation": "Il faut de 15 à 20 minutes pour estimer le temps nécessaire au rétablissement du service.",
+    "retablissement_prevu": "Hydro-Québec estime l'heure de rétablissement avec l'information dont elle dispose et peut l'ajuster selon ce que l'équipe constate sur place.",
+    "fin_non_determinee": "Quand un événement cause beaucoup de pannes, l'heure de rétablissement peut prendre plus de temps à estimer.",
+    "reprise_graduelle": "Hydro-Québec rétablit le service graduellement dans le secteur pour protéger ses équipements et éviter d'autres pannes. Le courant peut revenir quelques minutes, puis être coupé de nouveau pendant 30 minutes à 5 heures.",
+    "service_retabli": "Si le courant n'est toujours pas revenu, il faut signaler la panne de nouveau à Hydro-Québec.",
+}
+
+STATUT_INTERVENTION_DESCRIPTIONS_EN = {
+    "evaluation_travaux": "Hydro-Québec tries to restore service remotely, assesses the damage and the work required, then dispatches crews by priority. How long this assessment takes varies from one outage to another.",
+    "equipe_designee": "A crew is assigned to the work. It may handle several outages at once and be sent elsewhere if a more urgent outage occurs.",
+    "travaux_en_cours": "The crew sees the extent of the work once on site. The restoration time may change based on what it finds.",
+    "travaux_par_priorite": "During a major outage, work follows an order of priority: hazards reported to 911, hospitals and emergency services come first.",
+    "retablissement_en_evaluation": "It takes 15 to 20 minutes to estimate the time needed to restore service.",
+    "retablissement_prevu": "Hydro-Québec estimates the restoration time from the information available and may adjust it based on what the crew finds on site.",
+    "fin_non_determinee": "When an event causes many outages, the restoration time may take longer to estimate.",
+    "reprise_graduelle": "Hydro-Québec is restoring service gradually in the area to protect its equipment and avoid further outages. Power may come back for a few minutes, then be cut again for 30 minutes to 5 hours.",
+    "service_retabli": "If the power is still not back, report the outage to Hydro-Québec again.",
+}
+
+# Overrides STATUT_INTERVENTION_DESCRIPTIONS during a major outage (niveauUrgence in NIVEAU_URGENCE_MAJEURS).
+STATUT_INTERVENTION_DESCRIPTIONS_MAJEUR = {
+    "evaluation_travaux": "Hydro-Québec tente de rétablir le service à distance, évalue les dommages et envoie les équipes selon les priorités. Pendant une panne majeure, cette évaluation peut être plus longue.",
+    "retablissement_en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS["fin_non_determinee"],
+}
+
+STATUT_INTERVENTION_DESCRIPTIONS_MAJEUR_EN = {
+    "evaluation_travaux": "Hydro-Québec tries to restore service remotely, assesses the damage and dispatches crews by priority. During a major outage, this assessment may take longer.",
+    "retablissement_en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS_EN["fin_non_determinee"],
+}
+
+# ---------------------------------------------------------------------------
+# sensor.*_retablissement
+# ---------------------------------------------------------------------------
+
+# The restoration step of the Info-pannes outage tracker, separate from the intervention step.
+RETABLISSEMENT_OPTIONS = ["en_evaluation", "prevu", "en_revision"]
+
+RETABLISSEMENT_DESCRIPTIONS = {
+    "en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS["retablissement_en_evaluation"],
+    "prevu": STATUT_INTERVENTION_DESCRIPTIONS["retablissement_prevu"],
+    "en_revision": "L'heure de rétablissement prévue est dépassée ou doit être revue selon les nouveaux renseignements sur la panne.",
+}
+
+RETABLISSEMENT_DESCRIPTIONS_MAJEUR = {
+    "en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS_MAJEUR["retablissement_en_evaluation"],
+}
+
+RETABLISSEMENT_DESCRIPTIONS_EN = {
+    "en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS_EN["retablissement_en_evaluation"],
+    "prevu": STATUT_INTERVENTION_DESCRIPTIONS_EN["retablissement_prevu"],
+    "en_revision": "The expected restoration time has passed or must be revised based on new information about the outage.",
+}
+
+RETABLISSEMENT_DESCRIPTIONS_MAJEUR_EN = {
+    "en_evaluation": STATUT_INTERVENTION_DESCRIPTIONS_MAJEUR_EN["retablissement_en_evaluation"],
+}
+
+# ---------------------------------------------------------------------------
+# sensor.*_info_pannes raison_annulation attribute
+# ---------------------------------------------------------------------------
+
+# API cancellation reason → the raison_annulation value the attribute has always carried.
+RAISON_ANNULATION = {
+    "work_already_done": "travaux_deja_realises",
+    "third_party_request": "demande_tiers",
+    "weather_conditions": "conditions_meteorologiques",
+    "other_urgent_work": "autres_travaux_urgents",
+    "schedule_changed": "planification_modifiee",
+}
