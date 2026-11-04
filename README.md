@@ -266,6 +266,19 @@ Pour les utilisateurs du tarif Flex-D (DPC).
 - Actions de début et fin de pointe
 - Délai aléatoire intégré en fin de pointe (30s-5min)
 
+### Blueprint Info-pannes (Notifications)
+
+Pour être averti des pannes et des interruptions planifiées d'un ou plusieurs lieux suivis par Info-pannes.
+
+[![Importer le blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhydroqc%2Fhydroqc-ha%2Fblob%2Fmain%2Fblueprints%2Foutage-notifications.yaml)
+
+**Fonctionnalités** :
+- Une notification à chaque changement de l'état Panne : panne en cours, panne majeure, rétablissement graduel, service rétabli
+- Annonce, début, fin, annulation et report des interruptions planifiées, avec la raison donnée par Hydro-Québec
+- Début, fin, durée, cause, étape des travaux et adresses touchées dans le message, quand Hydro-Québec les fournit
+- Section optionnelle pour les mises à jour : nouvelle étape des travaux pendant une panne, report du début d'une interruption planifiée, nouvelle heure de fin, changement du nombre d'adresses touchées. On choisit les capteurs de détails de chaque lieu à suivre
+- Action de notification au choix, avec les variables `title`, `message`, `lieu` et `etat`
+
 ### Tester vos blueprints
 
 Après avoir importé un blueprint et créé votre automatisation, **créez un événement de test** dans votre calendrier pour valider que tout fonctionne :
