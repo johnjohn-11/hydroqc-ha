@@ -13,7 +13,7 @@
       },
       "account": {
         "title": "Modo Portal - Inicio de sesión",
-        "description": "Ingrese sus credenciales de Hydro-Québec. El portal puede solicitar un código de verificación por correo; la sesión obtenida es válida unas 24 h y después se necesitará un nuevo código.",
+        "description": "Ingrese sus credenciales de Hydro-Québec. El portal puede solicitar un código de verificación por correo; la sesión obtenida es válida unos 90 días y se renueva por sí sola, así que no se necesita un nuevo código mientras la integración siga en uso.",
         "data": {
           "username": "Nombre de usuario (Correo electrónico)",
           "password": "Contraseña",
@@ -101,7 +101,7 @@
       },
       "reconfigure": {
         "title": "Reconfigurar la cuenta del portal",
-        "description": "Actualice las credenciales de Hydro-Québec y luego seleccione de nuevo el contrato (actualmente {contract_id}). Se conservan el nombre del contrato, las entidades y el historial. La nueva sesión es válida unas 24 h; después se necesitará un nuevo código por correo.",
+        "description": "Actualice las credenciales de Hydro-Québec y luego seleccione de nuevo el contrato (actualmente {contract_id}). Se conservan el nombre del contrato, las entidades y el historial. La nueva sesión es válida unos 90 días y se renueva por sí sola, así que no se necesita un nuevo código por correo mientras la integración siga en uso.",
         "data": {
           "username": "Usuario (correo electrónico)",
           "password": "Contraseña"
@@ -123,14 +123,14 @@
       },
       "reauth_confirm": {
         "title": "Volver a autenticar la cuenta del portal",
-        "description": "Hydro-Québec rechazó la contraseña de {username} o la sesión del portal (válida unas 24 h) expiró. Ingrese la contraseña; si el portal solicita un código de verificación, el siguiente paso se lo pedirá. Si el portal le pidió cambiarla, defina primero la nueva contraseña en el sitio de Hydro-Québec y luego ingrésela aquí.",
+        "description": "Hydro-Québec rechazó la contraseña de {username} o la sesión guardada no se pudo renovar. Ingrese la contraseña; si el portal solicita un código de verificación, el siguiente paso se lo pedirá. Si el portal le pidió cambiarla, defina primero la nueva contraseña en el sitio de Hydro-Québec y luego ingrésela aquí.",
         "data": {
           "password": "Contraseña"
         }
       },
       "mfa": {
         "title": "Verificación por correo electrónico",
-        "description": "Hydro-Québec envió un código de verificación a {email}. Ingréselo a continuación. Deje el campo vacío para recibir un nuevo código. La sesión obtenida es válida unas 24 h; después Hydro-Québec pedirá un nuevo código.",
+        "description": "Hydro-Québec envió un código de verificación a {email}. Ingréselo a continuación. Deje el campo vacío para recibir un nuevo código. La sesión obtenida es válida unos 90 días y se renueva por sí sola, así que no se necesita un nuevo código mientras la integración siga en uso.",
         "data": {
           "mfa_code": "Código de verificación"
         },
