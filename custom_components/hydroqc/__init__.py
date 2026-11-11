@@ -242,6 +242,7 @@ async def _async_setup_info_pannes_entry(hass: HomeAssistant, entry: ConfigEntry
         entry.data[CONF_LIEU_CONSO],
         entry.entry_id,
         DeviceInfo(
+            entry_type=dr.DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, entry.entry_id)},
             name=f"Hydro-Québec - {entry.title}",
             manufacturer="Hydro-Québec",
