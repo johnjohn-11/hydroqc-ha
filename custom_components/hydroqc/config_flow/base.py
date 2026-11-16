@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
@@ -639,7 +640,9 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Fetch available sectors from API if not already done
         if not self._available_sectors:
-            self._available_sectors = await fetch_available_sectors()
+            self._available_sectors = await fetch_available_sectors(
+                async_get_clientsession(self.hass)
+            )
 
         if user_input is not None:
             # The form carries the lowercase key, the API wants the sector as it spells it
@@ -677,7 +680,9 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Fetch offers for selected sector
         if not self._available_rates:
-            self._available_rates = await fetch_offers_for_sector(self._selected_sector)
+            self._available_rates = await fetch_offers_for_sector(
+                async_get_clientsession(self.hass), self._selected_sector
+            )
 
         if user_input is not None:
             contract_name = user_input[CONF_CONTRACT_NAME]

@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import (
     async_track_time_change,
 )
@@ -103,7 +104,9 @@ class HydroQcDataCoordinator(
         # Public data client for peak data (always used)
         rate_for_client = f"{self._rate}{self._rate_option}"
         self.public_client = PublicDataClient(
-            rate_code=rate_for_client, preheat_duration=self._preheat_duration
+            rate_code=rate_for_client,
+            preheat_duration=self._preheat_duration,
+            session=async_get_clientsession(hass),
         )
 
         # Track last successful update time

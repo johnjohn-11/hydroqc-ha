@@ -21,16 +21,23 @@ WINTER_PEAKS_URL = f"{WINTER_PEAKS_API_BASE}/catalog/datasets/{WINTER_PEAKS_DATA
 class PublicDataClient:
     """Client for Hydro-Québec public open data API."""
 
-    def __init__(self, rate_code: str, preheat_duration: int = 120) -> None:
+    def __init__(
+        self,
+        rate_code: str,
+        preheat_duration: int = 120,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
         """Initialize public data client.
 
         Args:
             rate_code: Rate code (DCPC, DPC, M-GDP, etc.)
             preheat_duration: Pre-heat duration in minutes (default 120)
+            session: Session to use, left open by close_session. One is created when omitted.
         """
         self.rate_code = rate_code
         self.peak_handler = PeakHandler(rate_code, preheat_duration)
-        self._session: aiohttp.ClientSession | None = None
+        self._session: aiohttp.ClientSession | None = session
+        self._owns_session = session is None
         self._last_fetch: datetime.datetime | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -124,7 +131,7 @@ class PublicDataClient:
 
     async def close_session(self) -> None:
         """Close aiohttp session."""
-        if self._session and not self._session.closed:
+        if self._owns_session and self._session and not self._session.closed:
             await self._session.close()
 
     def set_preheat_duration(self, duration: int) -> None:

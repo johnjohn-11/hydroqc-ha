@@ -32,7 +32,7 @@ def contract(mock_webuser: MagicMock) -> MagicMock:
 
 
 @pytest.fixture
-def coordinator(
+async def coordinator(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_webuser: MagicMock,

@@ -30,54 +30,52 @@ def rate_key(rate: str, rate_option: str) -> str:
     return f"{rate}_{rate_option}".lower().rstrip("_")
 
 
-async def fetch_available_sectors() -> list[str]:
+async def fetch_available_sectors(session: aiohttp.ClientSession) -> list[str]:
     """Fetch available sectors from Hydro-Québec open data API."""
     try:
-        async with aiohttp.ClientSession() as session:
-            params: dict[str, str | int] = {
-                "select": "secteurclient",
-                "limit": 100,
-                "timezone": "America/Toronto",
+        params: dict[str, str | int] = {
+            "select": "secteurclient",
+            "limit": 100,
+            "timezone": "America/Toronto",
+        }
+        async with session.get(
+            WINTER_PEAKS_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+
+            # Extract unique sectors from results
+            results = data.get("results", [])
+            sectors = {
+                record.get("secteurclient") for record in results if record.get("secteurclient")
             }
-            async with session.get(
-                WINTER_PEAKS_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
 
-                # Extract unique sectors from results
-                results = data.get("results", [])
-                sectors = {
-                    record.get("secteurclient") for record in results if record.get("secteurclient")
-                }
-
-                return sorted(sectors)
+            return sorted(sectors)
 
     except Exception as err:
         _LOGGER.warning("Failed to fetch sectors from API: %s", err)
         return ["Residentiel", "Affaires"]
 
 
-async def fetch_offers_for_sector(sector: str) -> list[tuple[str, str]]:
+async def fetch_offers_for_sector(
+    session: aiohttp.ClientSession, sector: str
+) -> list[tuple[str, str]]:
     """Fetch the (rate, rate option) pairs offered to a sector from Hydro-Québec open data API."""
     try:
-        async with aiohttp.ClientSession() as session:
-            params: dict[str, str | int] = {
-                "select": "offre",
-                "refine": f'secteurclient:"{sector}"',
-                "limit": 100,
-                "timezone": "America/Toronto",
-            }
-            async with session.get(
-                WINTER_PEAKS_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
+        params: dict[str, str | int] = {
+            "select": "offre",
+            "refine": f'secteurclient:"{sector}"',
+            "limit": 100,
+            "timezone": "America/Toronto",
+        }
+        async with session.get(
+            WINTER_PEAKS_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
 
-                offers = {record.get("offre") for record in data.get("results", [])}
-                return sorted(
-                    RATE_CODE_MAPPING[offer] for offer in offers & RATE_CODE_MAPPING.keys()
-                )
+            offers = {record.get("offre") for record in data.get("results", [])}
+            return sorted(RATE_CODE_MAPPING[offer] for offer in offers & RATE_CODE_MAPPING.keys())
 
     except Exception as err:
         _LOGGER.warning("Failed to fetch offers for sector %s from API: %s", sector, err)

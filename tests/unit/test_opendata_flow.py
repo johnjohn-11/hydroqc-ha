@@ -52,7 +52,7 @@ async def test_opendata_flow_creates_an_entry(
             result["flow_id"], {"sector": "affaires"}
         )
         assert result["step_id"] == "opendata_rate"
-        offers.assert_awaited_once_with("Affaires")
+        assert offers.await_args.args[1] == "Affaires"
 
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_CONTRACT_NAME: "Shop", "rate_selection": "m_gdp"}
