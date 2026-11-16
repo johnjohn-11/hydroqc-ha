@@ -34,7 +34,9 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import HydroQcDataCoordinator
+from .coordinator.calendar_sync import async_remove_calendar_uids
 from .info_pannes.coordinator import InfoPannesCoordinator, issue_ids
+from .session import async_remove_session
 
 if TYPE_CHECKING:
     pass
@@ -275,6 +277,9 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete the entry's Info-pannes repair issues, which would otherwise stay until a restart."""
     for issue_id in issue_ids(entry.entry_id):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
+    # The session holds the portal tokens: it must not outlive the entry
+    await async_remove_session(hass, entry)
+    await async_remove_calendar_uids(hass, entry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
