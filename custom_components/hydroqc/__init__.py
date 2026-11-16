@@ -17,13 +17,17 @@ from homeassistant.exceptions import (
     ConfigEntryNotReady,
     HomeAssistantError,
 )
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import (
+    device_registry as dr,
+    entity_registry as er,
+    issue_registry as ir,
+)
 from homeassistant.helpers.typing import ConfigType
 
 from . import calendar_manager
 from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT, DOMAIN
 from .coordinator import HydroQcConfigEntry, HydroQcDataCoordinator
-from .coordinator.calendar_sync import async_remove_calendar_uids
+from .coordinator.calendar_sync import async_remove_calendar_uids, calendar_issue_id
 from .session import async_remove_session
 
 _LOGGER = logging.getLogger(__name__)
@@ -128,6 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HydroQcConfigEntry) -> b
         )
 
         # Reset validation state to re-validate new calendar entity
+        ir.async_delete_issue(hass, DOMAIN, calendar_issue_id(config_entry.entry_id))
         coord._calendar_validation_attempts = 0
         coord._calendar_validation_passed = False
 
@@ -190,6 +195,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HydroQcConfigEntry) -> b
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete the files stored for the entry: the session holds the portal tokens and must not outlive it."""
+    ir.async_delete_issue(hass, DOMAIN, calendar_issue_id(entry.entry_id))
     await async_remove_session(hass, entry)
     await async_remove_calendar_uids(hass, entry)
 

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from freezegun import freeze_time
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -530,10 +531,7 @@ class TestHydroQcDataCoordinator:
         mock_config_entry: MockConfigEntry,
         mock_webuser: MagicMock,
     ) -> None:
-        """Test calendar sync auto-disables after multiple validation failures."""
-        # Register persistent_notification service
-        mock_notification_service = AsyncMock()
-        hass.services.async_register("persistent_notification", "create", mock_notification_service)
+        """Calendar sync stops after repeated validation failures and raises a repair issue."""
 
         # Update config to include calendar
         mock_config_entry = MockConfigEntry(
@@ -592,8 +590,11 @@ class TestHydroQcDataCoordinator:
             # After 10 attempts, calendar entity ID should be cleared (disabled)
             assert coordinator._calendar_entity_id is None
             assert coordinator._calendar_validation_attempts == 10
-            # Notification service should have been called
-            assert mock_notification_service.called
+            # The configuration is kept and the problem is reported in Repairs
+            assert mock_config_entry.data["calendar_entity_id"] == "calendar.missing"
+            assert ir.async_get(hass).async_get_issue(
+                DOMAIN, f"calendar_missing_{mock_config_entry.entry_id}"
+            )
 
     async def test_calendar_sync_skipped_for_non_peak_rates(
         self,

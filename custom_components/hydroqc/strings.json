@@ -442,5 +442,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "calendar_missing": {
+      "title": "Peak calendar not found",
+      "description": "The calendar `{calendar}` configured for {contract} could not be found after several attempts, so peak events are no longer synced to it. Check that the calendar exists, or pick another one in the integration options. The calendar is tried again when Home Assistant restarts."
+    }
   }
 }

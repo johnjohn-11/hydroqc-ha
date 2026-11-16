@@ -442,5 +442,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "calendar_missing": {
+      "title": "Calendario de puntas no encontrado",
+      "description": "El calendario `{calendar}` configurado para {contract} no se encontró tras varios intentos, por lo que los eventos de punta ya no se sincronizan en él. Compruebe que el calendario existe o elija otro en las opciones de la integración. El calendario se vuelve a probar al reiniciar Home Assistant."
+    }
   }
 }

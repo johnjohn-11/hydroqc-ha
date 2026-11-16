@@ -442,5 +442,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "calendar_missing": {
+      "title": "Calendrier de pointes introuvable",
+      "description": "Le calendrier `{calendar}` configuré pour {contract} est introuvable après plusieurs tentatives : les événements de pointe n'y sont plus synchronisés. Vérifiez que le calendrier existe ou choisissez-en un autre dans les options de l'intégration. Le calendrier est réessayé au redémarrage de Home Assistant."
+    }
   }
 }

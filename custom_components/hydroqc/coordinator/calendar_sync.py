@@ -8,6 +8,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
 from hydroqc.contract import ContractDCPC
@@ -16,6 +17,7 @@ from .. import calendar_manager
 from ..calendar_peak_handler import CalendarPeakHandler
 from ..const import (
     CONF_CALENDAR_ENTITY_ID,
+    DOMAIN,
 )
 from ..utils import hq_today, is_winter_season
 
@@ -28,6 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 # Storage for calendar event UIDs (persists across restarts)
 STORAGE_VERSION = 1
 STORAGE_KEY_CALENDAR_UIDS = "hydroqc.calendar_uids"
+
+
+def calendar_issue_id(entry_id: str) -> str:
+    """Return the id of the repair issue raised when an entry's calendar is missing."""
+    return f"calendar_missing_{entry_id}"
 
 
 def _calendar_uid_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, list[str]]]:
@@ -210,40 +217,29 @@ class CalendarSyncMixin:
 
         return True
 
-    async def _async_disable_calendar_permanently(self) -> None:
-        """Disable calendar feature permanently after validation failures.
+    def _async_stop_calendar_sync(self) -> None:
+        """Stop syncing to a calendar that stays missing, and report it in Repairs.
 
-        Only called after multiple validation attempts have failed.
+        The configuration is kept: the next start tries the calendar again.
         """
         _LOGGER.error(
-            "Calendar entity %s failed validation after %d attempts. Disabling calendar sync for %s.",
+            "Calendar entity %s failed validation after %d attempts. Calendar sync is stopped for %s.",
             self._calendar_entity_id,
             self._calendar_max_validation_attempts,
             self.contract_name,
         )
-
-        # Update entry to remove calendar configuration
-        new_data = dict(self.entry.data)
-        new_data.pop(CONF_CALENDAR_ENTITY_ID, None)
-
-        self.hass.config_entries.async_update_entry(self.entry, data=new_data)
-
-        # Create persistent notification
-        await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "message": (
-                    f"Le calendrier {self._calendar_entity_id} est introuvable après plusieurs tentatives. "
-                    f"La synchronisation des événements de pointe a été désactivée pour {self.contract_name}. "
-                    f"Vérifiez que le calendrier existe et reconfigurer dans les options de l'intégration."
-                ),
-                "title": "Hydro-Québec - Calendrier introuvable",
-                "notification_id": f"hydroqc_calendar_missing_{self.contract_id}",
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            calendar_issue_id(self.entry.entry_id),
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="calendar_missing",
+            translation_placeholders={
+                "calendar": str(self._calendar_entity_id),
+                "contract": self.contract_name,
             },
         )
-
-        # Clear calendar config
         self._calendar_entity_id = None
 
     async def _async_sync_calendar_events(self) -> None:
@@ -274,6 +270,7 @@ class CalendarSyncMixin:
 
             if is_valid:
                 self._calendar_validation_passed = True
+                ir.async_delete_issue(self.hass, DOMAIN, calendar_issue_id(self.entry.entry_id))
                 _LOGGER.info(
                     "Calendar entity %s validated successfully for %s",
                     self._calendar_entity_id,
@@ -284,7 +281,7 @@ class CalendarSyncMixin:
 
                 if self._calendar_validation_attempts >= self._calendar_max_validation_attempts:
                     # Permanently disable after multiple failures
-                    await self._async_disable_calendar_permanently()
+                    self._async_stop_calendar_sync()
                     return
                 # Log warning but don't disable yet - will retry on next sync
                 _LOGGER.warning(
