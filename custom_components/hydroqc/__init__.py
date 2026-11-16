@@ -29,6 +29,7 @@ from .const import (
     CONF_CONTRACT_NAME,
     CONF_ENABLE_INFO_PANNES,
     CONF_LIEU_CONSO,
+    CONF_PREHEAT_DURATION,
     DEFAULT_AUTH_CLIENT,
     DOMAIN,
 )
@@ -135,11 +136,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle options update - trigger immediate calendar sync if configured."""
         coord: HydroQcDataCoordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-        # The login client is chosen when the coordinator builds its WebUser and
-        # turning Info-pannes on or off adds or removes entities: both take a reload.
+        # The login client is chosen when the coordinator builds its WebUser,
+        # turning Info-pannes on or off adds or removes entities and the preheat
+        # duration is handed to the peak handlers when they are built: all take a reload.
         if (
             coord.auth_client != config_entry.options.get(CONF_AUTH_CLIENT, DEFAULT_AUTH_CLIENT)
             or config_entry.options.get(CONF_ENABLE_INFO_PANNES, True) != coord.info_pannes_enabled
+            or int(config_entry.options.get(CONF_PREHEAT_DURATION, coord.preheat_duration))
+            != coord.preheat_duration
         ):
             hass.config_entries.async_schedule_reload(config_entry.entry_id)
             return

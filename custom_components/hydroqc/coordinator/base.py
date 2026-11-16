@@ -89,7 +89,10 @@ class HydroQcDataCoordinator(
         self._auth_mode = entry.data[CONF_AUTH_MODE]
         self._rate = entry.data[CONF_RATE]
         self._rate_option = entry.data.get(CONF_RATE_OPTION, "")
-        self._preheat_duration = entry.data.get(CONF_PREHEAT_DURATION, 120)
+        # The options form stores the duration in the options, the setup flow in the data
+        self._preheat_duration = int(
+            entry.options.get(CONF_PREHEAT_DURATION, entry.data.get(CONF_PREHEAT_DURATION, 120))
+        )
 
         # Portal mode attributes (requires login)
         self._webuser: WebUser | None = None
@@ -238,6 +241,11 @@ class HydroQcDataCoordinator(
     def is_opendata_mode(self) -> bool:
         """Return True if using open data API only."""
         return bool(self._auth_mode == AUTH_MODE_OPENDATA)
+
+    @property
+    def preheat_duration(self) -> int:
+        """Return the preheat duration in minutes."""
+        return self._preheat_duration
 
     @property
     def rate(self) -> str:
