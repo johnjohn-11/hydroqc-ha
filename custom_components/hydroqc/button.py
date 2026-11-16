@@ -8,7 +8,8 @@ import logging
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -32,6 +33,9 @@ async def async_setup_entry(
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version) if integration.version else "unknown"
 
+    if CONF_CONTRACT_ID not in entry.data:
+        _async_migrate_opendata_button(hass, entry)
+
     entities: list[ButtonEntity] = []
 
     # Only add refresh button for DPC/DCPC rates with calendar configured
@@ -41,6 +45,27 @@ async def async_setup_entry(
     if entities:
         async_add_entities(entities)
         _LOGGER.debug("Added %d button entities", len(entities))
+
+
+@callback
+def _async_migrate_opendata_button(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Move an OpenData entry's button off the "unknown" contract id it was created with.
+
+    Every OpenData entry used that same id, for the button's unique id and for a device of its own.
+    """
+    ent_reg = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity.domain == "button" and entity.unique_id == "unknown_refresh_peak_data":
+            # Detached first: removing a device removes the entities still attached to it
+            ent_reg.async_update_entity(
+                entity.entity_id,
+                new_unique_id=f"{entry.entry_id}_refresh_peak_data",
+                device_id=None,
+            )
+
+    dev_reg = dr.async_get(hass)
+    if device := dev_reg.async_get_device(identifiers={(DOMAIN, "unknown")}):
+        dev_reg.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
 
 
 class HydroQcRefreshPeakDataButton(CoordinatorEntity[HydroQcDataCoordinator], ButtonEntity):
@@ -61,8 +86,9 @@ class HydroQcRefreshPeakDataButton(CoordinatorEntity[HydroQcDataCoordinator], Bu
         self._entry = entry
         self._version = version
 
-        contract_id = entry.data.get(CONF_CONTRACT_ID, "unknown")
-        contract_name = entry.data.get(CONF_CONTRACT_NAME, "Contract")
+        # Same fallback as the sensors, so an OpenData entry's button joins their device
+        contract_id = entry.data.get(CONF_CONTRACT_ID, entry.entry_id)
+        contract_name = entry.data.get(CONF_CONTRACT_NAME, "OpenData")
 
         self._attr_unique_id = f"{contract_id}_refresh_peak_data"
         self._attr_name = "Refresh Peak Data"

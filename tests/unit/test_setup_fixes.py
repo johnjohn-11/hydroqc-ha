@@ -4,9 +4,11 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.hydroqc.const import CONF_PREHEAT_DURATION
+from custom_components.hydroqc.button import _async_migrate_opendata_button
+from custom_components.hydroqc.const import CONF_PREHEAT_DURATION, DOMAIN
 from custom_components.hydroqc.coordinator import HydroQcDataCoordinator
 
 BASE = "custom_components.hydroqc.coordinator.base"
@@ -72,3 +74,28 @@ async def test_consumption_sync_waits_for_the_first_refresh(
             await coordinator.async_refresh()
             await asyncio.sleep(0)
             sync.assert_called_once()
+
+
+async def test_opendata_button_leaves_the_unknown_contract_id(
+    hass: HomeAssistant, mock_config_entry_opendata: MockConfigEntry
+) -> None:
+    """The button created under the "unknown" id moves to the entry's own id and its device is dropped."""
+    entry = mock_config_entry_opendata
+    entry.add_to_hass(hass)
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    device = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={(DOMAIN, "unknown")}
+    )
+    ent_reg.async_get_or_create(
+        "button", DOMAIN, "unknown_refresh_peak_data", config_entry=entry, device_id=device.id
+    )
+
+    _async_migrate_opendata_button(hass, entry)
+
+    assert ent_reg.async_get_entity_id("button", DOMAIN, "unknown_refresh_peak_data") is None
+    assert (
+        ent_reg.async_get_entity_id("button", DOMAIN, f"{entry.entry_id}_refresh_peak_data")
+        is not None
+    )
+    assert dev_reg.async_get_device(identifiers={(DOMAIN, "unknown")}) is None
