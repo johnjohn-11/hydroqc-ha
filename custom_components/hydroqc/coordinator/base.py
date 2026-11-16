@@ -241,6 +241,16 @@ class HydroQcDataCoordinator(
         return bool(self._auth_mode == AUTH_MODE_OPENDATA)
 
     @property
+    def portal_available(self) -> bool | None:
+        """Return whether the portal answered its last status check, None before the first one."""
+        return self._portal_available
+
+    @property
+    def reauth_required(self) -> bool:
+        """Return True while the portal waits for a verification code only the user can enter."""
+        return self._reauth_required
+
+    @property
     def preheat_duration(self) -> int:
         """Return the preheat duration in minutes."""
         return self._preheat_duration
