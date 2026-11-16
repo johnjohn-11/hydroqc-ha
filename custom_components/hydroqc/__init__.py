@@ -18,6 +18,7 @@ from homeassistant.exceptions import (
     HomeAssistantError,
 )
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.typing import ConfigType
 
 from . import calendar_manager
 from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT, DOMAIN
@@ -58,6 +59,15 @@ SERVICE_CREATE_PEAK_EVENT_SCHEMA = vol.Schema(
     }
 )
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # noqa: ARG001
+    """Register the services, so they exist whether or not an entry is loaded."""
+    hass.data.setdefault(DOMAIN, {})
+    await _async_register_services(hass)
+    return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Hydro-Québec from a config entry."""
@@ -79,17 +89,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         raise ConfigEntryNotReady(f"Error connecting to Hydro-Québec: {err}") from err
 
-    hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Load persisted calendar event UIDs from storage
     await coordinator.async_load_calendar_uids()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Register services (only once, first entry sets them up)
-    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_DATA):
-        await _async_register_services(hass)
 
     # Mark first refresh as done
     coordinator._first_refresh_done = True
@@ -431,8 +436,3 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         handle_create_peak_event,
         schema=SERVICE_CREATE_PEAK_EVENT_SCHEMA,
     )
-
-
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry when options change."""
-    await hass.config_entries.async_reload(entry.entry_id)
