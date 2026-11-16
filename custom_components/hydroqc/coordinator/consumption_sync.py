@@ -142,7 +142,9 @@ class ConsumptionSyncMixin:
             if is_initial_sync:
                 # Initial sync: Schedule background task to check and fill gaps
                 _LOGGER.info("Starting initial consumption statistics sync (background)")
-                self._regular_sync_task = asyncio.create_task(self._async_initial_sync())
+                self._regular_sync_task = self.entry.async_create_background_task(
+                    self.hass, self._async_initial_sync(), "hydroqc initial consumption sync"
+                )
             else:
                 # Regular sync: Only sync last 24 hours
                 _LOGGER.debug("Starting regular consumption statistics sync (last 24h)")
@@ -252,7 +254,9 @@ class ConsumptionSyncMixin:
             except Exception as err:
                 _LOGGER.error("Error during CSV import or follow-up sync: %s", err)
 
-        self._csv_import_task = asyncio.create_task(_csv_import_with_followup())
+        self._csv_import_task = self.entry.async_create_background_task(
+            self.hass, _csv_import_with_followup(), "hydroqc consumption history import"
+        )
 
     async def async_fetch_hourly_consumption(
         self, start_date: datetime.date, end_date: datetime.date

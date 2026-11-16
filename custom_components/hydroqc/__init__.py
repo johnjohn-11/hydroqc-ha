@@ -167,10 +167,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: HydroQcConfigEntry) -> b
                     coordinator.async_sync_consumption_history(days_back=history_days)
                 else:
                     # 30 days or less: regular initial sync already covers this
-                    hass.async_create_task(coordinator._async_regular_consumption_sync())
+                    entry.async_create_background_task(
+                        hass,
+                        coordinator._async_regular_consumption_sync(),
+                        "hydroqc consumption sync",
+                    )
             else:
                 # Restart - just run regular sync to catch up on recent data
-                hass.async_create_task(coordinator._async_regular_consumption_sync())
+                entry.async_create_background_task(
+                    hass,
+                    coordinator._async_regular_consumption_sync(),
+                    "hydroqc consumption sync",
+                )
         else:
             _LOGGER.info(
                 "Consumption sync disabled for %s, skipping consumption history import",

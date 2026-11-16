@@ -574,8 +574,8 @@ class HydroQcDataCoordinator(
 
             if current_signature != self._last_critical_events_signature:
                 if self._calendar_sync_task is None or self._calendar_sync_task.done():
-                    self._calendar_sync_task = asyncio.create_task(
-                        self._async_sync_calendar_events()
+                    self._calendar_sync_task = self.entry.async_create_background_task(
+                        self.hass, self._async_sync_calendar_events(), "hydroqc calendar sync"
                     )
                     self._last_critical_events_signature = current_signature
                     _LOGGER.debug(
@@ -741,8 +741,8 @@ class HydroQcDataCoordinator(
             )
 
             if should_sync:
-                self._regular_sync_task = asyncio.create_task(
-                    self._async_regular_consumption_sync()
+                self._regular_sync_task = self.entry.async_create_background_task(
+                    self.hass, self._async_regular_consumption_sync(), "hydroqc consumption sync"
                 )
                 self._last_consumption_sync = now
 

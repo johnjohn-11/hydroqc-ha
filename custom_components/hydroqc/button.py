@@ -126,8 +126,12 @@ class HydroQcRefreshPeakDataButton(CoordinatorEntity[HydroQcDataCoordinator], Bu
                             self.coordinator._calendar_sync_task is None
                             or self.coordinator._calendar_sync_task.done()
                         ):
-                            self.coordinator._calendar_sync_task = asyncio.create_task(
-                                self.coordinator._async_sync_calendar_events()
+                            self.coordinator._calendar_sync_task = (
+                                self.coordinator.entry.async_create_background_task(
+                                    self.hass,
+                                    self.coordinator._async_sync_calendar_events(),
+                                    "hydroqc calendar sync",
+                                )
                             )
                             self.coordinator._last_critical_events_signature = current_signature
                             _LOGGER.debug(
