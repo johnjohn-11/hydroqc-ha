@@ -8,9 +8,10 @@ import datetime
 import logging
 import zoneinfo
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.components.recorder import statistics
+from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.recorder import get_instance
 
@@ -540,11 +541,11 @@ class ConsumptionHistoryImporter:
                     batch[-1]["start"].date() if batch else "unknown",
                 )
 
-                await get_instance(self.hass).async_add_executor_job(
-                    statistics.async_add_external_statistics,
+                # A callback that queues the write on the recorder: it runs in the event loop
+                statistics.async_add_external_statistics(
                     self.hass,
-                    metadata,
-                    batch,
+                    cast(StatisticMetaData, metadata),
+                    cast(list[StatisticData], batch),
                 )
 
                 # Wait for recorder to commit the transaction before verification

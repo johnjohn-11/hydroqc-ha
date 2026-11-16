@@ -7,10 +7,14 @@ import datetime
 import logging
 import zoneinfo
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.components.recorder import statistics
-from homeassistant.components.recorder.models import StatisticMeanType
+from homeassistant.components.recorder.models import (
+    StatisticData,
+    StatisticMeanType,
+    StatisticMetaData,
+)
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -438,11 +442,11 @@ class StatisticsManager:
             if stats_list:
                 metadata = self.build_statistics_metadata(consumption_type)
 
-                await get_instance(self.hass).async_add_executor_job(
-                    statistics.async_add_external_statistics,
+                # A callback that queues the write on the recorder: it runs in the event loop
+                statistics.async_add_external_statistics(
                     self.hass,
-                    metadata,
-                    stats_list,
+                    cast(StatisticMetaData, metadata),
+                    cast(list[StatisticData], stats_list),
                 )
 
                 _LOGGER.info(
