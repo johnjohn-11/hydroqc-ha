@@ -8,6 +8,11 @@ from zoneinfo import ZoneInfo
 TZ = ZoneInfo("America/Toronto")
 
 
+def hq_today() -> datetime.date:
+    """Return the current date in Montréal, the one Hydro-Québec's data is dated in."""
+    return datetime.datetime.now(TZ).date()
+
+
 def is_winter_season(dt: datetime.datetime | datetime.date | None = None) -> bool:
     """Check if date is within winter season (Dec 1 - Mar 31).
 

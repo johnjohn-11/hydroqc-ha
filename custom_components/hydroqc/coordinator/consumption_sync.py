@@ -13,6 +13,7 @@ from homeassistant.util import slugify
 from ..const import CONF_CONTRACT_NAME
 from ..consumption_history import ConsumptionHistoryImporter
 from ..statistics_manager import StatisticsManager
+from ..utils import hq_today
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class ConsumptionSyncMixin:
             return False
 
         try:
-            today = datetime.date.today()
+            today = hq_today()
             period_start = getattr(self._contract, "cp_start_date", None)
             period_end = getattr(self._contract, "cp_end_date", None)
 
@@ -148,8 +149,8 @@ class ConsumptionSyncMixin:
             else:
                 # Regular sync: Only sync last 24 hours
                 _LOGGER.debug("Starting regular consumption statistics sync (last 24h)")
-                start_date = datetime.date.today() - datetime.timedelta(days=1)
-                await self.async_fetch_hourly_consumption(start_date, datetime.date.today())
+                start_date = hq_today() - datetime.timedelta(days=1)
+                await self.async_fetch_hourly_consumption(start_date, hq_today())
         except Exception as err:
             # Check if error might be due to billing period change
             if self._is_near_billing_period_change():
@@ -186,21 +187,21 @@ class ConsumptionSyncMixin:
                     "No existing statistics found. Syncing last 30 days. "
                     "Use 'hydroqc.sync_consumption_history' service to import full history (up to 2 years)."
                 )
-                start_date = datetime.date.today() - datetime.timedelta(days=30)
-                await self.async_fetch_hourly_consumption(start_date, datetime.date.today())
+                start_date = hq_today() - datetime.timedelta(days=30)
+                await self.async_fetch_hourly_consumption(start_date, hq_today())
             elif sync_start_date is not None:
                 # Found statistics, fill gap from last valid stat to now
                 # Limit to 30 days to avoid long sync on startup
-                max_sync_date = datetime.date.today() - datetime.timedelta(days=30)
+                max_sync_date = hq_today() - datetime.timedelta(days=30)
                 actual_start_date = max(sync_start_date, max_sync_date)
 
-                days_to_sync = (datetime.date.today() - actual_start_date).days + 1
+                days_to_sync = (hq_today() - actual_start_date).days + 1
                 _LOGGER.info(
                     "Syncing %d day(s) from %s to now",
                     days_to_sync,
                     actual_start_date.isoformat(),
                 )
-                await self.async_fetch_hourly_consumption(actual_start_date, datetime.date.today())
+                await self.async_fetch_hourly_consumption(actual_start_date, hq_today())
 
                 # If gap is larger than 30 days, inform user
                 if sync_start_date < max_sync_date:

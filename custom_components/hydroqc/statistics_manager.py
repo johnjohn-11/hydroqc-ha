@@ -20,6 +20,8 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from hydroqc.error import HydroQcHTTPError
 
+from .utils import hq_today
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
@@ -76,7 +78,7 @@ class StatisticsManager:
         """
         try:
             # Check last 30 days for existing statistics
-            today = datetime.date.today()
+            today = hq_today()
             thirty_days_ago = today - datetime.timedelta(days=30)
             tz = zoneinfo.ZoneInfo("America/Toronto")
 

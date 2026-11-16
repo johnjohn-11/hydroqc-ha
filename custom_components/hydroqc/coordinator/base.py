@@ -18,7 +18,7 @@ from homeassistant.helpers.event import (
     async_track_time_change,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util, slugify
 
 import hydroqc
 from hydroqc.account import Account
@@ -132,7 +132,7 @@ class HydroQcDataCoordinator(
 
         # Calculate random minute and second offsets based on integration start time
         # This distributes API calls across users to avoid thundering herd
-        _now = datetime.datetime.now()
+        _now = dt_util.now()
         self._schedule_offset_minutes = _now.minute % 15
         self._schedule_offset_seconds = _now.second
 
@@ -555,7 +555,7 @@ class HydroQcDataCoordinator(
                 self._last_opendata_update = datetime.datetime.now(ZoneInfo("America/Toronto"))
                 data_fetched = True
 
-                current_hour = datetime.datetime.now().hour
+                current_hour = dt_util.now().hour
                 if self._last_peak_update_hour != current_hour:
                     self._last_peak_update_hour = current_hour
                     _LOGGER.info("[OpenData] Hourly peak data refresh at %02d:00", current_hour)

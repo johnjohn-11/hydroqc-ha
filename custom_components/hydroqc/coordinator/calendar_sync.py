@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 import logging
 from typing import TYPE_CHECKING
 
@@ -18,7 +17,7 @@ from ..calendar_peak_handler import CalendarPeakHandler
 from ..const import (
     CONF_CALENDAR_ENTITY_ID,
 )
-from ..utils import is_winter_season
+from ..utils import hq_today, is_winter_season
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -180,7 +179,7 @@ class CalendarSyncMixin:
         if not isinstance(contract, ContractDCPC) or not contract.peak_handler:
             return False
 
-        today = datetime.date.today()
+        today = hq_today()
         winter_start = contract.peak_handler.winter_start_date.date()
         winter_end = contract.peak_handler.winter_end_date.date()
 

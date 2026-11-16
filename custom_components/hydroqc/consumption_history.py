@@ -15,6 +15,8 @@ from homeassistant.components.recorder.models import StatisticData, StatisticMet
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.recorder import get_instance
 
+from .utils import hq_today
+
 if TYPE_CHECKING:
     from hydroqc.contract.common import Contract
 
@@ -70,7 +72,7 @@ class ConsumptionHistoryImporter:
                 return
 
             # Calculate date range: days_back ago to yesterday
-            today = datetime.date.today()
+            today = hq_today()
             yesterday = today - datetime.timedelta(days=1)
             current_start_date = today - datetime.timedelta(days=days_back)
 
