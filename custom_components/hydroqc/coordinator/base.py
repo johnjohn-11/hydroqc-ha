@@ -582,10 +582,7 @@ class HydroQcDataCoordinator(
         # If in OpenData-only mode, return early
         if self.is_opendata_mode:
             _LOGGER.debug("OpenData mode: skipping portal data fetch")
-            if not data_fetched:
-                # No data fetched, don't update sensors
-                _LOGGER.debug("No data fetched, skipping sensor update")
-                raise UpdateFailed("No new data available")
+            # Off-season nothing is fetched: that is not a failure, and raising here would keep the entry from loading until December.
             return data
 
         # Skip authenticated portal calls on OpenData schedule unless Portal is due.
