@@ -244,5 +244,5 @@ class HydroQcBinarySensor(
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
-        # Sensors are always available to show last known value
-        return True
+        # The portal status sensor reports the outage that makes the others unavailable
+        return self._data_source == "portal_available" or super().available

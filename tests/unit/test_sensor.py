@@ -176,7 +176,10 @@ class TestHydroQcSensor:
                 "custom_components.hydroqc.coordinator.base.WebUser",
                 return_value=mock_webuser,
             ),
-            patch("custom_components.hydroqc.coordinator.base.PublicDataClient", return_value=mock_public_client),
+            patch(
+                "custom_components.hydroqc.coordinator.base.PublicDataClient",
+                return_value=mock_public_client,
+            ),
         ):
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             coordinator._first_refresh_done = False
@@ -220,7 +223,10 @@ class TestHydroQcSensor:
                 "custom_components.hydroqc.coordinator.base.WebUser",
                 return_value=mock_webuser,
             ),
-            patch("custom_components.hydroqc.coordinator.base.PublicDataClient", return_value=mock_public_client),
+            patch(
+                "custom_components.hydroqc.coordinator.base.PublicDataClient",
+                return_value=mock_public_client,
+            ),
         ):
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             coordinator._first_refresh_done = False
@@ -255,13 +261,14 @@ class TestHydroQcSensor:
         mock_contract: MagicMock,
         mock_integration_version: MagicMock,
     ) -> None:
-        """Test sensor availability based on data presence."""
+        """Sensors follow the coordinator: available after a successful refresh, unavailable after a failed one."""
         mock_config_entry.add_to_hass(hass)
         mock_webuser.customers[0].accounts[0].contracts[0] = mock_contract
+        mock_webuser.check_hq_portal_status = AsyncMock(return_value=True)
 
         with (
             patch(
-                "custom_components.hydroqc.coordinator.WebUser",
+                "custom_components.hydroqc.coordinator.base.WebUser",
                 return_value=mock_webuser,
             ),
             patch("custom_components.hydroqc.coordinator.base.PublicDataClient"),
@@ -278,9 +285,13 @@ class TestHydroQcSensor:
 
             entities = async_add_entities.call_args[0][0]
 
-            # All sensors should be available with valid data
+            assert coordinator.last_update_success
             for entity in entities:
                 assert entity.available
+
+            coordinator.last_update_success = False
+            for entity in entities:
+                assert not entity.available
 
     async def test_sensor_device_info(
         self,

@@ -708,10 +708,10 @@ class HydroQcDataCoordinator(
             _LOGGER.error("Unexpected error fetching data: %s", err)
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
-        # If no new data was fetched at all, skip sensor update
+        # Nothing was due this time: keep the data, that is not a failure
         if not data_fetched:
-            _LOGGER.debug("No new data fetched, skipping sensor update")
-            raise UpdateFailed("No new data available")
+            _LOGGER.debug("No new data fetched")
+            return data
 
         # Update timestamp on successful update
         self.last_update_success_time = datetime.datetime.now(datetime.UTC)

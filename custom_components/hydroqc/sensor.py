@@ -257,9 +257,3 @@ class HydroQcSensor(CoordinatorEntity[HydroQcDataCoordinator], RestoreEntity, Se
             attributes["data_source"] = "unknown"
 
         return attributes if attributes else None
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        # Sensors are always available to show last known value
-        return True
