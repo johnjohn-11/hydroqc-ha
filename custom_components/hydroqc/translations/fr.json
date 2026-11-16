@@ -160,13 +160,11 @@
         "title": "Options Hydro-Québec",
         "description": "Configurer les options d'intégration",
         "data": {
-          "update_interval": "Intervalle de mise à jour (secondes)",
           "preheat_duration_minutes": "Durée de préchauffage (minutes)",
           "enable_consumption_sync": "Activer la synchronisation de consommation",
           "calendar_entity_id": "Entité calendrier"
         },
         "data_description": {
-          "update_interval": "Fréquence de récupération des données d'Hydro-Québec (30-600 secondes)",
           "preheat_duration_minutes": "Durée avant les événements de pointe critique pour déclencher le préchauffage (0-240 minutes)",
           "enable_consumption_sync": "Activer pour synchroniser les données de consommation horaire pour le tableau de bord énergétique. Nécessite un rechargement de l'intégration pour prendre effet.",
           "calendar_entity_id": "Entité calendrier pour les événements de pointe (tarifs DPC/DCPC seulement). Requis pour le fonctionnement des capteurs de pointe."

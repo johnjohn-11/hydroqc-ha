@@ -160,13 +160,11 @@
         "title": "Opciones de Hydro-Québec",
         "description": "Configurar opciones de integración",
         "data": {
-          "update_interval": "Intervalo de actualización (segundos)",
           "preheat_duration_minutes": "Duración de precalentamiento (minutos)",
           "enable_consumption_sync": "Habilitar sincronización de consumo",
           "calendar_entity_id": "Entidad de calendario"
         },
         "data_description": {
-          "update_interval": "Con qué frecuencia obtener datos de Hydro-Québec (30-600 segundos)",
           "preheat_duration_minutes": "Duración antes de eventos de pico crítico para activar precalentamiento (0-240 minutos)",
           "enable_consumption_sync": "Habilitar para sincronizar datos de consumo por hora para el panel de energía. Requiere recargar la integración para tener efecto.",
           "calendar_entity_id": "Entidad de calendario para eventos de pico (solo tarifas DPC/DCPC). Requerido para el funcionamiento de los sensores de pico."
