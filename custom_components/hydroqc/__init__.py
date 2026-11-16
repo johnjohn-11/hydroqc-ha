@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import homeassistant.helpers.config_validation as cv
@@ -24,9 +24,6 @@ from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT,
 from .coordinator import HydroQcDataCoordinator
 from .coordinator.calendar_sync import async_remove_calendar_uids
 from .session import async_remove_session
-
-if TYPE_CHECKING:
-    pass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -215,9 +212,6 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             await coordinator.async_request_refresh()
 
         _LOGGER.info("Refreshed %d coordinator(s)", len(coordinators_to_refresh))
-
-    async def handle_fetch_hourly_consumption(call: ServiceCall) -> None:
-        """Handle fetch_hourly_consumption service call."""
 
     async def handle_sync_consumption_history(call: ServiceCall) -> None:
         """Handle sync_consumption_history service call (force CSV import)."""

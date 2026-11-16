@@ -7,16 +7,12 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from typing import TYPE_CHECKING
 
 from homeassistant.util import slugify
 
 from ..const import CONF_CONTRACT_NAME
 from ..consumption_history import ConsumptionHistoryImporter
 from ..statistics_manager import StatisticsManager
-
-if TYPE_CHECKING:
-    pass
 
 _LOGGER = logging.getLogger(__name__)
 
