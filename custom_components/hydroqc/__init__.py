@@ -20,7 +20,7 @@ from homeassistant.exceptions import (
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from . import calendar_manager
-from .const import CONF_AUTH_CLIENT, DEFAULT_AUTH_CLIENT, DOMAIN
+from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT, DOMAIN
 from .coordinator import HydroQcDataCoordinator
 
 if TYPE_CHECKING:
@@ -100,8 +100,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle options update - trigger immediate calendar sync if configured."""
         coord: HydroQcDataCoordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-        # The login client is chosen when the coordinator builds its WebUser
-        if coord.auth_client != config_entry.options.get(CONF_AUTH_CLIENT, DEFAULT_AUTH_CLIENT):
+        # The login client is chosen when the coordinator builds its WebUser and the
+        # preheat duration is handed to the peak handlers when they are built: both take a reload.
+        if (
+            coord.auth_client != config_entry.options.get(CONF_AUTH_CLIENT, DEFAULT_AUTH_CLIENT)
+            or int(config_entry.options.get(CONF_PREHEAT_DURATION, coord.preheat_duration))
+            != coord.preheat_duration
+        ):
             hass.config_entries.async_schedule_reload(config_entry.entry_id)
             return
 
