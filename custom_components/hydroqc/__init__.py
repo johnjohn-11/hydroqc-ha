@@ -214,14 +214,19 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_sync_consumption_history(call: ServiceCall) -> None:
         """Handle sync_consumption_history service call (force CSV import)."""
         days_back: int = call.data.get(ATTR_DAYS_BACK, 731)
-        device_ids = call.data.get("device_id")
+        dev_reg = dr.async_get(hass)
+        ent_reg = er.async_get(hass)
+
+        # The service targets entities or devices: an entity stands for its device
+        device_ids = list(call.data.get("device_id") or [])
+        for entity_id in call.data.get("entity_id") or []:
+            entity = ent_reg.async_get(entity_id)
+            if entity and entity.device_id and entity.device_id not in device_ids:
+                device_ids.append(entity.device_id)
 
         if not device_ids:
-            _LOGGER.warning("No device_id provided for sync_consumption_history service")
+            _LOGGER.warning("No entity or device provided for sync_consumption_history service")
             return
-
-        # Get device registry
-        dev_reg = dr.async_get(hass)
 
         # Find coordinators for the devices
         for device_id in device_ids:
