@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.hydroqc import _async_register_services
 from custom_components.hydroqc.button import _async_migrate_opendata_button
 from custom_components.hydroqc.const import CONF_PREHEAT_DURATION, DOMAIN
 from custom_components.hydroqc.coordinator import HydroQcDataCoordinator
@@ -99,3 +100,31 @@ async def test_opendata_button_leaves_the_unknown_contract_id(
         is not None
     )
     assert dev_reg.async_get_device(identifiers={(DOMAIN, "unknown")}) is None
+
+
+async def test_sync_history_service_accepts_an_entity(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Targeting an entity starts the history sync of its contract."""
+    mock_config_entry.add_to_hass(hass)
+    coordinator = MagicMock()
+    coordinator.is_portal_mode = True
+    coordinator.entry = mock_config_entry
+    hass.data[DOMAIN] = {mock_config_entry.entry_id: coordinator}
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=mock_config_entry.entry_id, identifiers={(DOMAIN, "contract123")}
+    )
+    entity = er.async_get(hass).async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "contract123_balance",
+        config_entry=mock_config_entry,
+        device_id=device.id,
+    )
+    await _async_register_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN, "sync_consumption_history", {"entity_id": entity.entity_id}, blocking=True
+    )
+
+    coordinator.async_sync_consumption_history.assert_called_once_with(731)
