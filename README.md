@@ -1,5 +1,7 @@
 # Intégration Hydro-Québec pour Home Assistant
 
+**Français** | [English](README.en.md)
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/hydroqc/hydroqc-ha/main/images/logo.png" alt="Hydro-Québec Logo" width="200"/>
 </p>
@@ -20,7 +22,7 @@
   <a href="https://github.com/hydroqc/hydroqc-ha/stargazers"><img src="https://img.shields.io/github/stars/hydroqc/hydroqc-ha?style=social" alt="Stars"></a>
 </p>
 
-**Navigation rapide:** [Installation](#-installation-rapide) • [Configuration](#-configuration) • [Blueprints](#-blueprints) • [Capteurs](#-capteurs-disponibles) • [FAQ](#-faq)
+**Navigation rapide :** [Installation](#installation-rapide) • [Configuration](#configuration) • [Services](#services-disponibles) • [Blueprints](#blueprints) • [Capteurs](#capteurs-disponibles) • [Mises à jour](#fréquence-de-mise-à-jour) • [FAQ](#faq)
 
 ---
 
@@ -40,14 +42,14 @@
 ## Qu'est-ce que c'est ?
 
 Intégration **native** pour Home Assistant qui vous permet de :
-- Importez votre historique de consommation horaire et affichez le dans le tableau de bord Énergie d'Home-Assistant
+- Importer votre historique de consommation horaire et l'afficher dans le tableau de bord Énergie de Home Assistant
 - Suivre vos factures et coûts électriques
 - Recevoir des alertes de périodes de pointe critiques
-- Affichez vos crédits hivernaux (tarif DCPC)
+- Afficher vos crédits hivernaux (tarif DCPC)
 - Automatiser vos appareils pendant les périodes de pointe
 - Utiliser un calendrier intégré pour une fiabilité maximale
 
-## Pourquoi cette integration ?
+## Pourquoi cette intégration ?
 
 ### Fiabilité avec l'approche "ceinture et bretelles"
 
@@ -68,7 +70,7 @@ L'intégration calendrier offre **plusieurs niveaux de protection** pour vos aut
 
 ## Installation rapide
 
-### Via HACS (Recommande)
+### Via HACS (Recommandé)
 
 **Option 1 : Installation en un clic**
 
@@ -198,6 +200,32 @@ Ou manuellement :
 
 ## Services disponibles
 
+### Service `hydroqc.refresh_data`
+
+Actualise immédiatement les données d'un contrat, sans attendre la prochaine mise à jour planifiée. Ciblez n'importe quelle entité de l'intégration.
+
+```yaml
+action: hydroqc.refresh_data
+target:
+  entity_id: sensor.hydro_quebec_maison_solde
+```
+
+### Service `hydroqc.sync_consumption_history`
+
+Importe l'historique de consommation horaire dans les statistiques du tableau de bord Énergie (mode authentifié seulement, synchronisation de consommation activée). L'import s'exécute en arrière-plan et peut prendre plusieurs minutes. Ciblez une entité ou l'appareil du contrat.
+
+| Paramètre | Description | Requis |
+|-----------|-------------|--------|
+| `days_back` | Nombre de jours d'historique à importer (731 par défaut, environ 2 ans) | Non |
+
+```yaml
+action: hydroqc.sync_consumption_history
+data:
+  days_back: 365
+target:
+  entity_id: sensor.hydro_quebec_maison_solde
+```
+
 ### Service `hydroqc.create_peak_event`
 
 Créez manuellement un événement de pointe critique dans le calendrier. Utile pour :
@@ -269,7 +297,7 @@ Après avoir importé un blueprint et créé votre automatisation, **créez un �
 
 1. Utilisez le service `hydroqc.create_peak_event` pour créer un événement
 2. Vérifiez que vos actions se déclenchent correctement
-3. Vous pouvez supprimez l'événement de test après validation
+3. Vous pouvez supprimer l'événement de test après validation
 
 ### Comprendre les paramètres des blueprints
 
@@ -362,6 +390,50 @@ Les blueprints incluent automatiquement un délai aléatoire (30 secondes à 5 m
 
 ---
 
+## Fréquence de mise à jour
+
+L'intégration interroge Hydro-Québec selon des fenêtres horaires (heure de Montréal), avec un décalage propre à chaque installation pour répartir les appels.
+
+| Source | Fréquence |
+|--------|-----------|
+| **Données ouvertes** (pointes) | Aux 15 minutes de 10 h 30 à 15 h, aux heures le reste du temps. Seulement en saison hivernale (1er décembre au 31 mars) |
+| **Espace Client** (solde, facturation, crédits) | Aux heures de minuit à 8 h, aux 3 heures le reste du temps |
+| **Consommation horaire** | Aux heures, après une mise à jour de l'Espace Client |
+| **Calendrier de pointes** | Relu aux 15 minutes en saison hivernale |
+
+Le service `hydroqc.refresh_data` force une mise à jour immédiate.
+
+---
+
+## Diagnostics
+
+Pour joindre un rapport à un ticket : **Paramètres** → **Appareils et services** → **Hydro-Québec** → menu **⋮** de l'entrée → **Télécharger les diagnostics**. Le courriel, le mot de passe, les numéros de client, de compte et de contrat ainsi que le nom du contrat y sont masqués.
+
+---
+
+## Supprimer l'intégration
+
+1. **Paramètres** → **Appareils et services** → **Hydro-Québec**
+2. Menu **⋮** de l'entrée → **Supprimer**
+
+La session du portail et la liste des événements de calendrier conservées par l'intégration sont effacées. Deux choses restent en place et se suppriment à la main :
+
+- Les statistiques de consommation importées (`hydroqc:...`), dans **Outils de développement** → **Statistiques**
+- Les événements de pointe déjà créés dans votre calendrier
+
+---
+
+## Limites connues
+
+- Une entrée suit un seul contrat. Ajoutez l'intégration une fois par contrat.
+- Les tarifs DPC et DCPC exigent un calendrier : sans lui, les capteurs de pointe ne sont pas créés.
+- Les pointes des données ouvertes ne sont publiées qu'en saison hivernale.
+- Hydro-Québec ne fournit pas la consommation horaire pendant 2 à 3 jours autour d'un changement de période de facturation.
+- Pour un nouveau contrat, les données de facturation n'arrivent qu'après une dizaine de jours.
+- L'intégration utilise des interfaces non documentées du portail d'Hydro-Québec, qui peuvent changer sans préavis.
+
+---
+
 ## FAQ
 
 <details>
@@ -392,11 +464,12 @@ Les blueprints incluent automatiquement un délai aléatoire (30 secondes à 5 m
 </details>
 
 <details>
-<summary><strong>Capteurs indisponibles</strong></summary>
+<summary><strong>Capteurs indisponibles ou inconnus</strong></summary>
 
-- Certains capteurs sont saisonniers (crédits hivernaux : déc-mars)
+- Les capteurs deviennent **indisponibles** quand la mise à jour échoue : portail hors ligne, erreur du portail ou réauthentification requise. Le capteur d'état du portail reste disponible pour signaler la panne
+- Les capteurs saisonniers (crédits hivernaux : déc-mars) affichent **inconnu** hors saison
 - Vérifiez si votre tarif supporte le capteur
-- Consultez les journaux du coordinateur
+- Consultez les journaux : **Paramètres** → **Système** → **Journaux**
 
 </details>
 
