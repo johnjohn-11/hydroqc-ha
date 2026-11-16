@@ -4,23 +4,460 @@ from __future__ import annotations
 
 import datetime
 import logging
-from collections.abc import Mapping
-from typing import Any, cast
+from dataclasses import dataclass
+from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN, SENSORS
+from .const import DOMAIN
 from .coordinator import HydroQcConfigEntry, HydroQcDataCoordinator
+from .entity import HydroQcSourceEntity, source_applies
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, kw_only=True)
+class HydroQcSensorEntityDescription(SensorEntityDescription):
+    """Describe a Hydro-Québec sensor.
+
+    ``data_source`` and the values of ``attributes`` are dotted paths in the coordinator's data, ``rates`` the rates the sensor exists for (``ALL`` for every rate).
+    """
+
+    data_source: str
+    rates: tuple[str, ...]
+    attributes: dict[str, str] | None = None
+
+
+# Ported from hydroqc2mqtt
+SENSORS: tuple[HydroQcSensorEntityDescription, ...] = (
+    HydroQcSensorEntityDescription(
+        key="balance",
+        translation_key="balance",
+        data_source="account.balance",
+        rates=("ALL",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_current_day",
+        translation_key="current_billing_period_current_day",
+        data_source="contract.cp_current_day",
+        rates=("ALL",),
+        icon="mdi:calendar-start",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTime.DAYS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_duration",
+        translation_key="current_billing_period_duration",
+        data_source="contract.cp_duration",
+        rates=("ALL",),
+        icon="mdi:calendar-expand-horizontal",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTime.DAYS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_total_to_date",
+        translation_key="current_billing_period_total_to_date",
+        data_source="contract.cp_current_bill",
+        rates=("ALL",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_projected_bill",
+        translation_key="current_billing_period_projected_bill",
+        data_source="contract.cp_projected_bill",
+        rates=("ALL",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_daily_bill_mean",
+        translation_key="current_billing_period_daily_bill_mean",
+        data_source="contract.cp_daily_bill_mean",
+        rates=("ALL",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_daily_consumption_mean",
+        translation_key="current_billing_period_daily_consumption_mean",
+        data_source="contract.cp_daily_consumption_mean",
+        rates=("ALL",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_total_consumption",
+        translation_key="current_billing_period_total_consumption",
+        data_source="contract.cp_total_consumption",
+        rates=("ALL",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_projected_total_consumption",
+        translation_key="current_billing_period_projected_total_consumption",
+        data_source="contract.cp_projected_total_consumption",
+        rates=("ALL",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_average_temperature",
+        translation_key="current_billing_period_average_temperature",
+        data_source="contract.cp_average_temperature",
+        rates=("ALL",),
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_kwh_cost_mean",
+        translation_key="current_billing_period_kwh_cost_mean",
+        data_source="contract.cp_kwh_cost_mean",
+        rates=("ALL",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD/kWh",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_rate",
+        translation_key="current_billing_period_rate",
+        data_source="contract.rate",
+        rates=("ALL",),
+        icon="mdi:playlist-check",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_rate_option",
+        translation_key="current_billing_period_rate_option",
+        data_source="contract.rate_option",
+        rates=("ALL",),
+        icon="mdi:playlist-star",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    HydroQcSensorEntityDescription(
+        key="outage",
+        translation_key="outage",
+        data_source="contract.next_outage.start_date",
+        rates=("ALL",),
+        icon="mdi:calendar-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "end_date": "contract.next_outage.end_date",
+            "cause": "contract.next_outage.cause.name",
+            "planned_duration": "contract.next_outage.planned_duration",
+            "code": "contract.next_outage.code.name",
+            "state": "contract.next_outage.status.name",
+            "emergency_level": "contract.next_outage.emergency_level",
+            "is_planned": "contract.next_outage.is_planned",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_higher_price_consumption",
+        translation_key="current_billing_period_higher_price_consumption",
+        data_source="contract.cp_higher_price_consumption",
+        rates=(
+            "DT",
+            "DPC",
+        ),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="current_billing_period_lower_price_consumption",
+        translation_key="current_billing_period_lower_price_consumption",
+        data_source="contract.cp_lower_price_consumption",
+        rates=(
+            "DT",
+            "DPC",
+        ),
+        icon="mdi:home-lightning-bolt-outline",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="amount_saved_vs_base_rate",
+        translation_key="amount_saved_vs_base_rate",
+        data_source="contract.amount_saved_vs_base_rate",
+        rates=(
+            "DT",
+            "DPC",
+        ),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_state",
+        translation_key="dpc_state",
+        data_source="calendar_peak_handler.current_state",
+        rates=("DPC",),
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_next_peak_start",
+        translation_key="dpc_next_peak_start",
+        data_source="calendar_peak_handler.next_peak.start_date",
+        rates=("DPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_next_peak_end",
+        translation_key="dpc_next_peak_end",
+        data_source="calendar_peak_handler.next_peak.end_date",
+        rates=("DPC",),
+        icon="mdi:clock-end",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_next_pre_heat_start",
+        translation_key="dpc_next_pre_heat_start",
+        data_source="calendar_peak_handler.next_peak.preheat.start_date",
+        rates=("DPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_critical_hours_count",
+        translation_key="dpc_critical_hours_count",
+        data_source="contract.critical_called_hours",
+        rates=("DPC",),
+        icon="mdi:clock-alert-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "max": "contract.max_critical_called_hours",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="dpc_winter_days_count",
+        translation_key="dpc_winter_days_count",
+        data_source="contract.winter_total_days_last_update",
+        rates=("DPC",),
+        icon="mdi:calendar-range-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        attributes={
+            "max": "contract.winter_total_days",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_state",
+        translation_key="wc_state",
+        data_source="calendar_peak_handler.current_state",
+        rates=("DCPC",),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_cumulated_credit",
+        translation_key="wc_cumulated_credit",
+        data_source="contract.peak_handler.cumulated_credit",
+        rates=("DCPC",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_projected_cumulated_credit",
+        translation_key="wc_projected_cumulated_credit",
+        data_source="contract.peak_handler.projected_cumulated_credit",
+        rates=("DCPC",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_anchor_start",
+        translation_key="wc_next_anchor_start",
+        data_source="calendar_peak_handler.next_peak.anchor.start_date",
+        rates=("DCPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "critical": "calendar_peak_handler.next_peak.is_critical",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_anchor_end",
+        translation_key="wc_next_anchor_end",
+        data_source="calendar_peak_handler.next_peak.anchor.end_date",
+        rates=("DCPC",),
+        icon="mdi:clock-end",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "critical": "calendar_peak_handler.next_peak.is_critical",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_peak_start",
+        translation_key="wc_next_peak_start",
+        data_source="calendar_peak_handler.next_peak.start_date",
+        rates=("DCPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "critical": "calendar_peak_handler.next_peak.is_critical",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_peak_end",
+        translation_key="wc_next_peak_end",
+        data_source="calendar_peak_handler.next_peak.end_date",
+        rates=("DCPC",),
+        icon="mdi:clock-end",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "critical": "calendar_peak_handler.next_peak.is_critical",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_critical_peak_start",
+        translation_key="wc_next_critical_peak_start",
+        data_source="calendar_peak_handler.next_critical_peak.start_date",
+        rates=("DCPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_critical_peak_end",
+        translation_key="wc_next_critical_peak_end",
+        data_source="calendar_peak_handler.next_critical_peak.end_date",
+        rates=("DCPC",),
+        icon="mdi:clock-end",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_next_pre_heat_start",
+        translation_key="wc_next_pre_heat_start",
+        data_source="calendar_peak_handler.next_peak.preheat.start_date",
+        rates=("DCPC",),
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        attributes={
+            "critical": "calendar_peak_handler.next_peak.is_critical",
+        },
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_morning_peak_credit",
+        translation_key="wc_yesterday_morning_peak_credit",
+        data_source="contract.peak_handler.yesterday_morning_peak.credit",
+        rates=("DCPC",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_morning_peak_actual_consumption",
+        translation_key="wc_yesterday_morning_peak_actual_consumption",
+        data_source="contract.peak_handler.yesterday_morning_peak.actual_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_morning_peak_ref_consumption",
+        translation_key="wc_yesterday_morning_peak_ref_consumption",
+        data_source="contract.peak_handler.yesterday_morning_peak.ref_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_morning_peak_saved_consumption",
+        translation_key="wc_yesterday_morning_peak_saved_consumption",
+        data_source="contract.peak_handler.yesterday_morning_peak.saved_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_evening_peak_credit",
+        translation_key="wc_yesterday_evening_peak_credit",
+        data_source="contract.peak_handler.yesterday_evening_peak.credit",
+        rates=("DCPC",),
+        icon="mdi:currency-usd",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement="CAD",
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_evening_peak_actual_consumption",
+        translation_key="wc_yesterday_evening_peak_actual_consumption",
+        data_source="contract.peak_handler.yesterday_evening_peak.actual_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_evening_peak_ref_consumption",
+        translation_key="wc_yesterday_evening_peak_ref_consumption",
+        data_source="contract.peak_handler.yesterday_evening_peak.ref_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+    HydroQcSensorEntityDescription(
+        key="wc_yesterday_evening_peak_saved_consumption",
+        translation_key="wc_yesterday_evening_peak_saved_consumption",
+        data_source="contract.peak_handler.yesterday_evening_peak.saved_consumption",
+        rates=("DCPC",),
+        icon="mdi:home-lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    ),
+)
 
 
 async def async_setup_entry(
@@ -31,122 +468,34 @@ async def async_setup_entry(
     """Set up Hydro-Québec sensors from a config entry."""
     coordinator = entry.runtime_data
 
-    # Get integration version from manifest
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version) if integration.version else "unknown"
 
-    entities: list[HydroQcSensor] = []
-
-    for sensor_key, sensor_config_obj in SENSORS.items():
-        sensor_config = cast(Mapping[str, Any], sensor_config_obj)
-        # Check if sensor is applicable for this rate
-        rates = sensor_config.get("rates", [])
-        if "ALL" not in rates:
-            if coordinator.rate_with_option not in rates:
-                continue
-
-        # In opendata mode, only create sensors that use public_client data
-        if coordinator.is_opendata_mode:
-            data_source = sensor_config.get("data_source", "")
-            if isinstance(data_source, str) and not data_source.startswith("public_client."):
-                _LOGGER.debug(
-                    "Skipping sensor %s in opendata mode (requires portal login)",
-                    sensor_key,
-                )
-                continue
-
-        # Skip winter credit sensors (contract.peak_handler) if not DCPC
-        # Note: public_client.peak_handler sensors should NOT be skipped
-        data_source_str = str(sensor_config.get("data_source", ""))
-        if "contract.peak_handler." in data_source_str and coordinator.rate_option != "CPC":
-            continue
-
-        # Skip calendar-based sensors if no calendar is configured
-        if (
-            data_source_str.startswith("calendar_peak_handler.")
-            and not coordinator.calendar_peak_handler
-        ):
-            _LOGGER.debug(
-                "Skipping sensor %s (no calendar configured)",
-                sensor_key,
-            )
-            continue
-
-        entities.append(HydroQcSensor(coordinator, entry, sensor_key, sensor_config, version))
-
+    entities = [
+        HydroQcSensor(coordinator, entry, description, version)
+        for description in SENSORS
+        if source_applies(coordinator, description)
+    ]
     async_add_entities(entities)
     _LOGGER.debug("Added %d sensor entities", len(entities))
 
 
-class HydroQcSensor(CoordinatorEntity[HydroQcDataCoordinator], RestoreEntity, SensorEntity):
+class HydroQcSensor(HydroQcSourceEntity, RestoreEntity, SensorEntity):
     """Representation of a Hydro-Québec sensor."""
 
-    _attr_has_entity_name = True
+    entity_description: HydroQcSensorEntityDescription
 
     def __init__(
         self,
         coordinator: HydroQcDataCoordinator,
-        entry: ConfigEntry,
-        sensor_key: str,
-        sensor_config: Mapping[str, Any],
+        entry: HydroQcConfigEntry,
+        description: HydroQcSensorEntityDescription,
         version: str,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
-
-        self._sensor_key = sensor_key
-        self._sensor_config = sensor_config
-        self._data_source = sensor_config["data_source"]
-        self._attributes_sources = sensor_config.get("attributes", {})
+        super().__init__(coordinator, entry, description, version)
+        self.entity_description = description
         self._restored_value: Any = None
-
-        # OpenData mode uses entry_id, Portal mode uses contract info
-        contract_name = entry.data.get(CONF_CONTRACT_NAME, "OpenData")
-        contract_id = entry.data.get(CONF_CONTRACT_ID, entry.entry_id)
-
-        # Entity configuration
-        self._attr_translation_key = self._sensor_key
-        self._attr_unique_id = f"{contract_id}_{sensor_key}"
-        self._attr_device_class = sensor_config.get("device_class")
-        self._attr_state_class = sensor_config.get("state_class")
-        self._attr_native_unit_of_measurement = sensor_config.get("unit")
-        self._attr_icon = sensor_config.get("icon")
-
-        # Set entity category for diagnostic sensors
-        if sensor_config.get("diagnostic", False):
-            self._attr_entity_category = EntityCategory.DIAGNOSTIC
-
-        # Set entity registry enabled default (for sensors disabled by default)
-        if sensor_config.get("disabled_by_default", False):
-            self._attr_entity_registry_enabled_default = False
-
-        # Set attribution based on data source
-        # Calendar-based sensors show calendar name, others show data source
-        if isinstance(self._data_source, str) and self._data_source.startswith(
-            "calendar_peak_handler."
-        ):
-            # Attribution will be set dynamically in extra_state_attributes
-            # since calendar name may not be available at init time
-            self._attr_attribution = None
-            self._uses_calendar_attribution = True
-        elif isinstance(self._data_source, str) and self._data_source.startswith("public_client."):
-            self._attr_attribution = "Données ouvertes Hydro-Québec"
-            self._uses_calendar_attribution = False
-        elif coordinator.is_portal_mode:
-            self._attr_attribution = "Espace Client Hydro-Québec"
-            self._uses_calendar_attribution = False
-        else:
-            self._attr_attribution = None
-            self._uses_calendar_attribution = False
-
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, contract_id)},
-            name=f"Hydro-Québec - {contract_name}",
-            manufacturer="Hydro-Québec",
-            model=f"{coordinator.rate}{coordinator.rate_option}",
-            sw_version=version,
-        )
 
     async def async_added_to_hass(self) -> None:
         """Restore last state when entity is added to hass."""
@@ -154,19 +503,13 @@ class HydroQcSensor(CoordinatorEntity[HydroQcDataCoordinator], RestoreEntity, Se
 
         # Restore previous state to avoid showing unknown during reload
         if (last_state := await self.async_get_last_state()) is not None:
-            # Try to restore the numeric state
             try:
                 if last_state.state not in ("unknown", "unavailable"):
                     # For timestamp sensors, parse the ISO string back to datetime
-                    if self._attr_device_class == "timestamp":
+                    if self.device_class == SensorDeviceClass.TIMESTAMP:
                         self._restored_value = datetime.datetime.fromisoformat(last_state.state)
                     else:
                         self._restored_value = last_state.state
-                    _LOGGER.debug(
-                        "Restored sensor %s state: %s",
-                        self.entity_id,
-                        self._restored_value,
-                    )
             except (ValueError, TypeError):
                 _LOGGER.debug(
                     "Could not restore sensor %s state: %s",
@@ -183,36 +526,21 @@ class HydroQcSensor(CoordinatorEntity[HydroQcDataCoordinator], RestoreEntity, Se
 
         value = self.coordinator.get_sensor_value(self._data_source)
 
-        # If coordinator hasn't fetched data yet and we have a restored value, use it
-        if value is None and self._restored_value is not None:
-            _LOGGER.debug(
-                "Sensor %s using restored value: %s (coordinator data not yet available)",
-                self.entity_id,
-                self._restored_value,
-            )
-            return self._restored_value
-
+        # Until the coordinator has data, show the value restored from the last run
         if value is None:
-            return None
+            return self._restored_value
+        self._restored_value = None
 
-        # We have fresh data from coordinator, clear the restored value
-        if self._restored_value is not None:
-            _LOGGER.debug(
-                "Sensor %s got fresh data from coordinator, clearing restored value",
-                self.entity_id,
-            )
-            self._restored_value = None
-
-        # Format value based on type
         if isinstance(value, datetime.datetime):
-            # For timestamp device class, return datetime object directly
-            # Home Assistant will handle the formatting
-            return value if self._attr_device_class == "timestamp" else value.isoformat()
+            # A timestamp sensor takes the datetime itself
+            if self.device_class == SensorDeviceClass.TIMESTAMP:
+                return value
+            return value.isoformat()
 
         if isinstance(value, datetime.timedelta):
             return f"{value.seconds / 60} minutes"
 
-        if isinstance(value, (int, float)) and self._attr_device_class == "monetary":
+        if isinstance(value, (int, float)) and self.device_class == SensorDeviceClass.MONETARY:
             return round(value, 2)
 
         return value
@@ -220,40 +548,18 @@ class HydroQcSensor(CoordinatorEntity[HydroQcDataCoordinator], RestoreEntity, Se
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return entity specific state attributes."""
-        attributes = {}
+        attributes: dict[str, Any] = {}
 
-        # Add sensor-specific attributes
-        for attr_key, attr_source in self._attributes_sources.items():
+        for attr_key, attr_source in (self.entity_description.attributes or {}).items():
             attr_value = self.coordinator.get_sensor_value(attr_source)
-            if attr_value is not None:
-                # Format attribute values
-                if isinstance(attr_value, datetime.datetime):
-                    attributes[attr_key] = attr_value.isoformat()
-                elif isinstance(attr_value, datetime.timedelta):
-                    attributes[attr_key] = f"{attr_value.seconds / 60} minutes"
-                else:
-                    attributes[attr_key] = attr_value
+            if attr_value is None:
+                continue
+            if isinstance(attr_value, datetime.datetime):
+                attributes[attr_key] = attr_value.isoformat()
+            elif isinstance(attr_value, datetime.timedelta):
+                attributes[attr_key] = f"{attr_value.seconds / 60} minutes"
+            else:
+                attributes[attr_key] = attr_value
 
-        # Add common attributes
-        if self.coordinator.last_update_success_time:
-            attributes["last_update"] = self.coordinator.last_update_success_time.isoformat()
-
-        # Determine data source and attribution
-        if self._data_source.startswith("calendar_peak_handler."):
-            attributes["data_source"] = "calendar"
-            # Set attribution dynamically based on calendar name
-            if (
-                hasattr(self.coordinator, "calendar_peak_handler")
-                and self.coordinator.calendar_peak_handler
-            ):
-                calendar_name = self.coordinator.calendar_peak_handler.calendar_name
-                if calendar_name:
-                    attributes["attribution"] = f"Calendrier {calendar_name}"
-        elif self._data_source.startswith("public_client."):
-            attributes["data_source"] = "open_data"
-        elif self.coordinator.is_portal_mode:
-            attributes["data_source"] = "portal"
-        else:
-            attributes["data_source"] = "unknown"
-
-        return attributes if attributes else None
+        attributes.update(self._source_attributes())
+        return attributes

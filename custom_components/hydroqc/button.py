@@ -10,13 +10,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN
+from .const import CONF_CONTRACT_ID, DOMAIN
 from .coordinator import HydroQcConfigEntry, HydroQcDataCoordinator
+from .entity import HydroQcEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,37 +67,21 @@ def _async_migrate_opendata_button(hass: HomeAssistant, entry: ConfigEntry) -> N
         dev_reg.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
 
 
-class HydroQcRefreshPeakDataButton(CoordinatorEntity[HydroQcDataCoordinator], ButtonEntity):
+class HydroQcRefreshPeakDataButton(HydroQcEntity, ButtonEntity):
     """Button to manually refresh peak data from OpenData and calendar."""
 
-    _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:refresh"
 
     def __init__(
         self,
         coordinator: HydroQcDataCoordinator,
-        entry: ConfigEntry,
+        entry: HydroQcConfigEntry,
         version: str,
     ) -> None:
         """Initialize the button."""
-        super().__init__(coordinator)
-        self._entry = entry
-        self._version = version
-
-        # Same fallback as the sensors, so an OpenData entry's button joins their device
-        contract_id = entry.data.get(CONF_CONTRACT_ID, entry.entry_id)
-        contract_name = entry.data.get(CONF_CONTRACT_NAME, "OpenData")
-
-        self._attr_unique_id = f"{contract_id}_refresh_peak_data"
+        super().__init__(coordinator, entry, "refresh_peak_data", version)
         self._attr_translation_key = "refresh_peak_data"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(contract_id))},
-            name=f"Hydro-Québec - {contract_name}",
-            manufacturer="Hydro-Québec",
-            model=coordinator.rate_with_option,
-            sw_version=version,
-        )
 
     async def async_press(self) -> None:
         """Handle button press - refresh OpenData and Calendar data.

@@ -52,7 +52,7 @@ class TestHydroQcSensor:
 
             # Rate D should have basic sensors (balance, billing period, etc.)
             # Should NOT have winter credit sensors or peak sensors
-            sensor_keys = [entity._sensor_key for entity in entities]
+            sensor_keys = [entity.entity_description.key for entity in entities]
             assert "balance" in sensor_keys
             assert "current_billing_period_projected_bill" in sensor_keys
             assert "current_billing_period_total_consumption" in sensor_keys
@@ -96,7 +96,7 @@ class TestHydroQcSensor:
             await async_setup_entry(hass, dcpc_config, async_add_entities)
 
             entities = async_add_entities.call_args[0][0]
-            sensor_keys = [entity._sensor_key for entity in entities]
+            sensor_keys = [entity.entity_description.key for entity in entities]
 
             # Should have winter credit sensors
             assert "wc_cumulated_credit" in sensor_keys
@@ -141,7 +141,7 @@ class TestHydroQcSensor:
             await async_setup_entry(hass, dpc_config, async_add_entities)
 
             entities = async_add_entities.call_args[0][0]
-            sensor_keys = [entity._sensor_key for entity in entities]
+            sensor_keys = [entity.entity_description.key for entity in entities]
 
             # Calendar-based Flex-D sensors should NOT be created without calendar
             assert "dpc_state" not in sensor_keys
@@ -188,7 +188,11 @@ class TestHydroQcSensor:
 
             # Find the projected bill sensor
             projected_bill_sensor = next(
-                (e for e in entities if e._sensor_key == "current_billing_period_projected_bill"),
+                (
+                    e
+                    for e in entities
+                    if e.entity_description.key == "current_billing_period_projected_bill"
+                ),
                 None,
             )
             assert projected_bill_sensor is not None
