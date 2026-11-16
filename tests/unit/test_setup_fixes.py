@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -113,7 +114,8 @@ async def test_sync_history_service_accepts_an_entity(
     coordinator = MagicMock()
     coordinator.is_portal_mode = True
     coordinator.entry = mock_config_entry
-    hass.data[DOMAIN] = {mock_config_entry.entry_id: coordinator}
+    mock_config_entry.runtime_data = coordinator
+    mock_config_entry.mock_state(hass, ConfigEntryState.LOADED)
     device = dr.async_get(hass).async_get_or_create(
         config_entry_id=mock_config_entry.entry_id, identifiers={(DOMAIN, "contract123")}
     )

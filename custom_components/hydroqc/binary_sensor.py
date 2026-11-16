@@ -16,18 +16,18 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.loader import async_get_integration
 
 from .const import BINARY_SENSORS, CONF_CONTRACT_ID, CONF_CONTRACT_NAME, DOMAIN
-from .coordinator import HydroQcDataCoordinator
+from .coordinator import HydroQcConfigEntry, HydroQcDataCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: HydroQcConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Hydro-Québec binary sensors from a config entry."""
-    coordinator: HydroQcDataCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     # Get integration version from manifest
     integration = await async_get_integration(hass, DOMAIN)

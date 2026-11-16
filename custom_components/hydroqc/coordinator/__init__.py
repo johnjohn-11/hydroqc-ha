@@ -5,6 +5,12 @@ from hydroqc.webuser import WebUser
 
 from .. import calendar_manager
 from ..public_data_client import PublicDataClient
-from .base import HydroQcDataCoordinator
+from .base import HydroQcConfigEntry, HydroQcDataCoordinator
 
-__all__ = ["HydroQcDataCoordinator", "PublicDataClient", "WebUser", "calendar_manager"]
+__all__ = [
+    "HydroQcConfigEntry",
+    "HydroQcDataCoordinator",
+    "PublicDataClient",
+    "WebUser",
+    "calendar_manager",
+]

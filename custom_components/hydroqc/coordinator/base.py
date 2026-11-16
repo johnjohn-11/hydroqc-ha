@@ -71,6 +71,8 @@ from .sensor_data import SensorDataMixin
 
 _LOGGER = logging.getLogger(__name__)
 
+type HydroQcConfigEntry = ConfigEntry[HydroQcDataCoordinator]
+
 
 class HydroQcDataCoordinator(
     DataUpdateCoordinator[dict[str, Any]],

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import (
@@ -22,7 +22,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from . import calendar_manager
 from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT, DOMAIN
-from .coordinator import HydroQcDataCoordinator
+from .coordinator import HydroQcConfigEntry, HydroQcDataCoordinator
 from .coordinator.calendar_sync import async_remove_calendar_uids
 from .session import async_remove_session
 
@@ -64,12 +64,20 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # noqa: ARG001
     """Register the services, so they exist whether or not an entry is loaded."""
-    hass.data.setdefault(DOMAIN, {})
     await _async_register_services(hass)
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+def _async_loaded_coordinator(hass: HomeAssistant, entry_id: str) -> HydroQcDataCoordinator | None:
+    """Return the coordinator of a loaded entry of this integration."""
+    entry = hass.config_entries.async_get_entry(entry_id)
+    if entry is None or entry.domain != DOMAIN or entry.state is not ConfigEntryState.LOADED:
+        return None
+    coordinator: HydroQcDataCoordinator = entry.runtime_data
+    return coordinator
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: HydroQcConfigEntry) -> bool:
     """Set up Hydro-Québec from a config entry."""
     _LOGGER.debug("Setting up Hydro-Québec integration for %s", entry.title)
 
@@ -89,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         raise ConfigEntryNotReady(f"Error connecting to Hydro-Québec: {err}") from err
 
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
 
     # Load persisted calendar event UIDs from storage
     await coordinator.async_load_calendar_uids()
@@ -100,9 +108,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator._first_refresh_done = True
 
     # Register options update listener for immediate calendar sync
-    async def _async_options_updated(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    async def _async_options_updated(hass: HomeAssistant, config_entry: HydroQcConfigEntry) -> None:
         """Handle options update - trigger immediate calendar sync if configured."""
-        coord: HydroQcDataCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+        coord = config_entry.runtime_data
 
         # The login client is chosen when the coordinator builds its WebUser and the
         # preheat duration is handed to the peak handlers when they are built: both take a reload.
@@ -178,13 +186,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await async_remove_calendar_uids(hass, entry)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: HydroQcConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Hydro-Québec integration for %s", entry.title)
 
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        coordinator: HydroQcDataCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        await coordinator.async_shutdown()
+        await entry.runtime_data.async_shutdown()
 
     return unload_ok
 
@@ -208,7 +215,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         for entity_id in entity_ids:
             entity = ent_reg.async_get(entity_id)
             if entity and entity.config_entry_id:
-                coordinator = hass.data[DOMAIN].get(entity.config_entry_id)
+                coordinator = _async_loaded_coordinator(hass, entity.config_entry_id)
                 if coordinator:
                     coordinators_to_refresh.add(coordinator)
 
@@ -244,7 +251,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
             # Find config entry for this device
             for config_entry_id in device.config_entries:
-                coordinator: HydroQcDataCoordinator = hass.data[DOMAIN].get(config_entry_id)
+                coordinator = _async_loaded_coordinator(hass, config_entry_id)
                 if coordinator and coordinator.is_portal_mode:
                     # Check if consumption sync is enabled (check options first, then data)
                     enable_consumption_sync = coordinator.entry.options.get(
@@ -320,7 +327,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
             # Find config entry for this device
             for config_entry_id in device.config_entries:
-                coordinator: HydroQcDataCoordinator = hass.data[DOMAIN].get(config_entry_id)
+                coordinator = _async_loaded_coordinator(hass, config_entry_id)
                 if not coordinator:
                     continue
 

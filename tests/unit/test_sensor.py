@@ -41,9 +41,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
@@ -92,9 +90,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, dcpc_config)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][dcpc_config.entry_id] = coordinator
+            dcpc_config.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, dcpc_config, async_add_entities)
@@ -139,9 +135,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, dpc_config)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][dpc_config.entry_id] = coordinator
+            dpc_config.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, dpc_config, async_add_entities)
@@ -185,9 +179,7 @@ class TestHydroQcSensor:
             coordinator._first_refresh_done = False
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
@@ -232,9 +224,7 @@ class TestHydroQcSensor:
             coordinator._first_refresh_done = False
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
@@ -276,9 +266,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
@@ -315,9 +303,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
@@ -354,9 +340,7 @@ class TestHydroQcSensor:
             coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
             await coordinator.async_refresh()
 
-            # Register coordinator in hass.data like real integration does
-            hass.data.setdefault(DOMAIN, {})
-            hass.data[DOMAIN][mock_config_entry.entry_id] = coordinator
+            mock_config_entry.runtime_data = coordinator
 
             async_add_entities = MagicMock()
             await async_setup_entry(hass, mock_config_entry, async_add_entities)
