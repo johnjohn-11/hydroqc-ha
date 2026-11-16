@@ -21,13 +21,24 @@ from ..const import (
 from ..utils import is_winter_season
 
 if TYPE_CHECKING:
-    pass
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
 # Storage for calendar event UIDs (persists across restarts)
 STORAGE_VERSION = 1
 STORAGE_KEY_CALENDAR_UIDS = "hydroqc.calendar_uids"
+
+
+def _calendar_uid_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, list[str]]]:
+    """Return the store holding the calendar event UIDs of ``entry``."""
+    return Store(hass, STORAGE_VERSION, f"{STORAGE_KEY_CALENDAR_UIDS}.{entry.entry_id}")
+
+
+async def async_remove_calendar_uids(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the persisted calendar event UIDs of a removed entry."""
+    await _calendar_uid_store(hass, entry).async_remove()
 
 
 class CalendarSyncMixin:
@@ -51,9 +62,7 @@ class CalendarSyncMixin:
         # Storage for persisting calendar event UIDs
         self._calendar_uid_store: Store[dict[str, list[str]]] | None = None
         if self._calendar_entity_id:
-            # Create unique storage key per contract to avoid conflicts
-            storage_key = f"{STORAGE_KEY_CALENDAR_UIDS}.{self.entry.entry_id}"
-            self._calendar_uid_store = Store(self.hass, STORAGE_VERSION, storage_key, encoder=None)
+            self._calendar_uid_store = _calendar_uid_store(self.hass, self.entry)
 
         # Track calendar sync task (prevent concurrent syncs)
         self._calendar_sync_task: asyncio.Task[None] | None = None

@@ -1,16 +1,19 @@
 """Unit tests for setup, options, service and removal behaviours."""
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.hydroqc import _async_register_services
+from custom_components.hydroqc import _async_register_services, async_remove_entry
 from custom_components.hydroqc.button import _async_migrate_opendata_button
 from custom_components.hydroqc.const import CONF_PREHEAT_DURATION, DOMAIN
 from custom_components.hydroqc.coordinator import HydroQcDataCoordinator
+from custom_components.hydroqc.coordinator.calendar_sync import STORAGE_KEY_CALENDAR_UIDS
+from custom_components.hydroqc.session import async_save_session
 
 BASE = "custom_components.hydroqc.coordinator.base"
 
@@ -128,3 +131,20 @@ async def test_sync_history_service_accepts_an_entity(
     )
 
     coordinator.async_sync_consumption_history.assert_called_once_with(731)
+
+
+async def test_removing_an_entry_deletes_its_stored_files(
+    hass: HomeAssistant, hass_storage: dict[str, Any], mock_config_entry: MockConfigEntry
+) -> None:
+    """The portal session and the calendar event UIDs do not outlive the entry."""
+    mock_config_entry.add_to_hass(hass)
+    session_key = f"{DOMAIN}.{mock_config_entry.entry_id}.session"
+    uids_key = f"{STORAGE_KEY_CALENDAR_UIDS}.{mock_config_entry.entry_id}"
+    await async_save_session(hass, mock_config_entry, {"refresh_token": "token"})
+    hass_storage[uids_key] = {"version": 1, "key": uids_key, "data": {"uids": ["a"]}}
+    assert session_key in hass_storage
+
+    await async_remove_entry(hass, mock_config_entry)
+
+    assert session_key not in hass_storage
+    assert uids_key not in hass_storage

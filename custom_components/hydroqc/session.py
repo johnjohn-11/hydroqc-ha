@@ -62,6 +62,11 @@ async def async_load_session(hass: HomeAssistant, entry: ConfigEntry) -> dict[st
     return state if isinstance(state, dict) else None
 
 
+async def async_remove_session(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the persisted session of a removed entry."""
+    await _session_store(hass, entry).async_remove()
+
+
 async def async_save_session(
     hass: HomeAssistant, entry: ConfigEntry, state: dict[str, Any]
 ) -> None:

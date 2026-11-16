@@ -22,6 +22,8 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from . import calendar_manager
 from .const import CONF_AUTH_CLIENT, CONF_PREHEAT_DURATION, DEFAULT_AUTH_CLIENT, DOMAIN
 from .coordinator import HydroQcDataCoordinator
+from .coordinator.calendar_sync import async_remove_calendar_uids
+from .session import async_remove_session
 
 if TYPE_CHECKING:
     pass
@@ -166,6 +168,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the files stored for the entry: the session holds the portal tokens and must not outlive it."""
+    await async_remove_session(hass, entry)
+    await async_remove_calendar_uids(hass, entry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
