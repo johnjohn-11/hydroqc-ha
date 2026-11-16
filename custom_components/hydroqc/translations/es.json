@@ -35,16 +35,6 @@
           "contract": "Seleccione el contrato que desea agregar a Home Assistant"
         }
       },
-      "configure_preheat": {
-        "title": "Configurar duración de precalentamiento",
-        "description": "Configure cuándo activar alertas de precalentamiento para {rate_name}",
-        "data": {
-          "preheat_duration_minutes": "Duración de precalentamiento (minutos)"
-        },
-        "data_description": {
-          "preheat_duration_minutes": "Duración antes de eventos de pico crítico para activar precalentamiento (0-240 minutos, predeterminado: 120)"
-        }
-      },
       "calendar": {
         "title": "Configuración de calendario (Requerido)",
         "description": "Se **requiere un calendario dedicado** para los sensores de pico de {contract_name}.\n\nTodos los sensores de eventos de pico (estado, próximos picos, precalentamiento) leen sus datos de este calendario.\n\n⚠️ **Importante**: Use un calendario dedicado para HydroQc - no use un calendario compartido.\n\n📅 ¿No tiene un calendario? [Crear un calendario local](/config/integrations/integration/local_calendar)",
@@ -69,9 +59,11 @@
         "title": "Importar historial de consumo",
         "description": "¿Cuántos días de historial de consumo desea importar? Los últimos 30 días se sincronizarán automáticamente. El historial máximo disponible es de 800 días. Establezca en 0 para omitir la importación de historial adicional. La importación se ejecuta en segundo plano y puede tardar varios minutos.",
         "data": {
+          "enable_consumption_sync": "Activar la sincronización de consumo",
           "history_days": "Días de historial para importar"
         },
         "data_description": {
+          "enable_consumption_sync": "Actívela para crear los sensores de consumo y sincronizar los datos horarios para el panel de Energía. Desactívela si no necesita el seguimiento del consumo o si otra integración proporciona estos datos.",
           "history_days": "Número de días para importar (0-800). Establezca en 0 para sincronizar solo los últimos 30 días, o ingrese un valor para historial más antiguo."
         }
       },
@@ -85,18 +77,16 @@
           "sector": "Seleccione si es un cliente residencial o comercial"
         }
       },
-      "opendata_offer": {
+      "opendata_rate": {
         "title": "Modo Datos Abiertos - Seleccionar tarifa",
-        "description": "Seleccione su plan de tarifa eléctrica para clientes {sector}. Las opciones disponibles se obtienen de la API pública de Hydro-Québec",
+        "description": "Seleccione su plan de tarifa eléctrica. Las opciones disponibles se obtienen de la API pública de Hydro-Québec",
         "data": {
           "contract_name": "Nombre del contrato",
-          "rate_selection": "Plan de tarifa",
-          "preheat_duration_minutes": "Duración de precalentamiento (minutos)"
+          "rate_selection": "Plan de tarifa"
         },
         "data_description": {
           "contract_name": "Un nombre amigable para esta configuración (ej. 'Casa', 'Cabaña')",
-          "rate_selection": "Seleccione su plan de tarifa eléctrica de las opciones disponibles",
-          "preheat_duration_minutes": "Duración antes de eventos de pico crítico para activar precalentamiento (0-240 minutos, predeterminado: 120)"
+          "rate_selection": "Seleccione su plan de tarifa eléctrica de las opciones disponibles"
         }
       },
       "reconfigure": {
@@ -160,7 +150,8 @@
       "reconfigure_successful": "Reconfiguración exitosa",
       "reconfigure_portal_only": "Solo las entradas en modo Portal pueden reconfigurarse",
       "missing_contract": "No se encontró el contrato seleccionado",
-      "reauth_successful": "Reautenticación exitosa"
+      "reauth_successful": "Reautenticación exitosa",
+      "missing_sector": "No se seleccionó ningún sector de clientes"
     }
   },
   "options": {
@@ -380,6 +371,11 @@
       "portal_status": {
         "name": "Estado del portal"
       }
+    },
+    "button": {
+      "refresh_peak_data": {
+        "name": "Actualizar los datos de punta"
+      }
     }
   },
   "selector": {
@@ -387,6 +383,63 @@
       "options": {
         "mobile": "Aplicación móvil (recomendado): sesión renovada automáticamente (90 días)",
         "web": "Portal web: nuevo código de verificación cada día (24 horas)"
+      }
+    },
+    "auth_mode": {
+      "options": {
+        "portal": "Portal (inicio de sesión en el Espacio Cliente)",
+        "opendata": "Datos abiertos (sin inicio de sesión)"
+      }
+    },
+    "sector": {
+      "options": {
+        "residentiel": "Residencial",
+        "affaires": "Comercial"
+      }
+    },
+    "rate_selection": {
+      "options": {
+        "d_cpc": "Tarifa D + Créditos de invierno (CPC)",
+        "dpc": "Flex-D (tarificación dinámica)",
+        "m_gdp": "Tarifa M + GDP",
+        "m_cpc": "Tarifa M + Créditos de invierno (CPC)",
+        "m_gpc": "Tarifa M + GPC",
+        "m_eng": "Tarifa M + ENG01",
+        "m_oea": "Tarifa M + OEA"
+      }
+    }
+  },
+  "services": {
+    "refresh_data": {
+      "name": "Actualizar datos",
+      "description": "Actualiza manualmente los datos de la API de Hydro-Québec."
+    },
+    "sync_consumption_history": {
+      "name": "Sincronizar el historial de consumo",
+      "description": "Importa el historial de consumo por hora de Hydro-Québec (importación CSV, hasta 2 años de datos). Se ejecuta en segundo plano.",
+      "fields": {
+        "days_back": {
+          "name": "Días de historial",
+          "description": "Número de días de historial para importar (731 por defecto, unos 2 años)."
+        }
+      }
+    },
+    "create_peak_event": {
+      "name": "Crear evento de punta",
+      "description": "Crea manualmente un evento de punta crítica en el calendario. Útil para prepararse antes del anuncio oficial. Si Hydro-Québec anuncia después el mismo evento, se asocia automáticamente.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El dispositivo Hydro-Québec (contrato) para el que crear el evento."
+        },
+        "date": {
+          "name": "Fecha",
+          "description": "La fecha del evento de punta."
+        },
+        "time_slot": {
+          "name": "Franja horaria",
+          "description": "Punta de la mañana (6h-10h) o de la tarde (16h-20h)."
+        }
       }
     }
   }

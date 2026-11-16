@@ -91,7 +91,7 @@ class HydroQcRefreshPeakDataButton(CoordinatorEntity[HydroQcDataCoordinator], Bu
         contract_name = entry.data.get(CONF_CONTRACT_NAME, "OpenData")
 
         self._attr_unique_id = f"{contract_id}_refresh_peak_data"
-        self._attr_name = "Refresh Peak Data"
+        self._attr_translation_key = "refresh_peak_data"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, str(contract_id))},
             name=f"Hydro-Québec - {contract_name}",

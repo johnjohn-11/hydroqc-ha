@@ -1,22 +1,16 @@
 # Service definitions for Hydro-Québec integration
 refresh_data:
-  name: Refresh data
-  description: Manually refresh data from Hydro-Québec API
   target:
     entity:
       integration: hydroqc
   fields: {}
 
 sync_consumption_history:
-  name: Sync consumption history
-  description: Import historical hourly consumption data from Hydro-Québec (CSV import for up to 2 years of data). Runs as a background task.
   target:
     entity:
       integration: hydroqc
   fields:
     days_back:
-      name: Days back
-      description: Number of days of historical data to import (default 731 = ~2 years)
       required: false
       default: 731
       example: 731
@@ -27,26 +21,18 @@ sync_consumption_history:
           mode: box
 
 create_peak_event:
-  name: Create peak event
-  description: Manually create a critical peak event in the calendar. Useful when you want to prepare for an upcoming peak before the official announcement. If the same event is later announced by Hydro-Québec, it will be automatically matched.
   fields:
     device_id:
-      name: Device
-      description: The HydroQc device (contract) to create the event for
       required: true
       selector:
         device:
           integration: hydroqc
     date:
-      name: Date
-      description: The date of the peak event
       required: true
       example: "2026-01-15"
       selector:
         date:
     time_slot:
-      name: Time slot
-      description: Morning (6h-10h) or Evening (16h-20h) peak period
       required: true
       example: "AM"
       selector:

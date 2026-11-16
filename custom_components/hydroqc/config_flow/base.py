@@ -9,7 +9,7 @@ from typing import Any, cast
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.selector import (
@@ -57,7 +57,7 @@ from ..const import (
     DOMAIN,
 )
 from ..session import async_save_session as save_session_state, stage_pending_session
-from .helpers import SECTOR_MAPPING, fetch_available_sectors, fetch_offers_for_sector
+from .helpers import fetch_available_sectors, fetch_offers_for_sector, rate_key
 from .options import HydroQcOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._contract_name: str | None = None
         self._available_sectors: list[str] = []
         self._selected_sector: str | None = None
-        self._available_rates: list[dict[str, str]] = []
+        self._available_rates: list[tuple[str, str]] = []
         self._login_origin: str = LOGIN_ORIGIN_USER
         self._mfa_pending: bool = False
         self._maintenance_end: str = ""
@@ -126,20 +126,9 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     {
                         vol.Required(CONF_AUTH_MODE): SelectSelector(
                             SelectSelectorConfig(
-                                options=cast(
-                                    list[SelectOptionDict],
-                                    [
-                                        {
-                                            "value": AUTH_MODE_PORTAL,
-                                            "label": "Portal Mode (requires login)",
-                                        },
-                                        {
-                                            "value": AUTH_MODE_OPENDATA,
-                                            "label": "OpenData Mode (no login required)",
-                                        },
-                                    ],
-                                ),
+                                options=[AUTH_MODE_PORTAL, AUTH_MODE_OPENDATA],
                                 mode=SelectSelectorMode.LIST,
+                                translation_key="auth_mode",
                             )
                         )
                     }
@@ -635,14 +624,11 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             min=0,
                             max=800,
                             mode=NumberSelectorMode.BOX,
-                            unit_of_measurement="days",
+                            unit_of_measurement=UnitOfTime.DAYS,
                         )
                     ),
                 }
             ),
-            description_placeholders={
-                "note": "Enable consumption sync to import hourly consumption data for the Energy Dashboard. If disabled, no consumption sensors will be created and the service to sync history will not be available."
-            },
         )
 
     async def async_step_opendata(
@@ -656,15 +642,13 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._available_sectors = await fetch_available_sectors()
 
         if user_input is not None:
-            # Store selected sector and move to offer selection
-            self._selected_sector = user_input["sector"]
+            # The form carries the lowercase key, the API wants the sector as it spells it
+            self._selected_sector = next(
+                sector
+                for sector in self._available_sectors
+                if sector.lower() == user_input["sector"]
+            )
             return await self.async_step_opendata_rate()
-
-        # Build sector selection dropdown
-        sector_options = [
-            {"value": sector, "label": SECTOR_MAPPING.get(sector, sector)}
-            for sector in self._available_sectors
-        ]
 
         return self.async_show_form(
             step_id="opendata",
@@ -672,8 +656,9 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("sector"): SelectSelector(
                         SelectSelectorConfig(
-                            options=cast(list[SelectOptionDict], sector_options),
+                            options=[sector.lower() for sector in self._available_sectors],
                             mode=SelectSelectorMode.DROPDOWN,
+                            translation_key="sector",
                         )
                     ),
                 }
@@ -697,9 +682,11 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             contract_name = user_input[CONF_CONTRACT_NAME]
 
-            # Parse rate selection (format: "RATE|OPTION")
-            rate_selection = user_input["rate_selection"]
-            rate, rate_option = rate_selection.split("|")
+            rate, rate_option = next(
+                offer
+                for offer in self._available_rates
+                if rate_key(*offer) == user_input["rate_selection"]
+            )
             rate_with_option = f"{rate}{rate_option}"
 
             # Store for calendar step
@@ -722,13 +709,8 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(f"opendata_{contract_name.lower().replace(' ', '_')}")
             self._abort_if_unique_id_configured()
 
-            sector_label = (
-                SECTOR_MAPPING.get(self._selected_sector, self._selected_sector)
-                if self._selected_sector
-                else "Unknown"
-            )
             return self.async_create_entry(
-                title=f"{contract_name} ({sector_label} - {rate}{rate_option})",
+                title=f"{contract_name} ({rate}{rate_option})",
                 data={
                     CONF_AUTH_MODE: AUTH_MODE_OPENDATA,
                     CONF_CONTRACT_NAME: contract_name,
@@ -738,14 +720,6 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 },
             )
 
-        # Build rate selection dropdown from API data
-        rate_options = [{"value": r["value"], "label": r["label"]} for r in self._available_rates]
-
-        sector_label = (
-            SECTOR_MAPPING.get(self._selected_sector, self._selected_sector)
-            if self._selected_sector
-            else "Unknown"
-        )
         return self.async_show_form(
             step_id="opendata_rate",
             data_schema=vol.Schema(
@@ -753,14 +727,14 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_CONTRACT_NAME, default="Home"): TextSelector(),
                     vol.Required("rate_selection"): SelectSelector(
                         SelectSelectorConfig(
-                            options=cast(list[SelectOptionDict], rate_options),
+                            options=[rate_key(*offer) for offer in self._available_rates],
                             mode=SelectSelectorMode.DROPDOWN,
+                            translation_key="rate_selection",
                         )
                     ),
                 }
             ),
             errors=errors,
-            description_placeholders={"sector": sector_label},
         )
 
     async def async_step_calendar_opendata(
@@ -795,14 +769,8 @@ class HydroQcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_CALENDAR_ENTITY_ID: calendar_entity_id,
                 }
 
-                sector_label = (
-                    SECTOR_MAPPING.get(self._selected_sector, self._selected_sector)
-                    if self._selected_sector
-                    else "Unknown"
-                )
-
                 return self.async_create_entry(
-                    title=f"{self._contract_name} ({sector_label} - {self._selected_contract['rate']}{self._selected_contract['rate_option']})",
+                    title=f"{self._contract_name} ({self._selected_contract['rate']}{self._selected_contract['rate_option']})",
                     data=entry_data,
                 )
 

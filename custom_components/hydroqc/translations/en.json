@@ -35,16 +35,6 @@
           "contract": "Select the contract you want to add to Home Assistant"
         }
       },
-      "configure_preheat": {
-        "title": "Configure Pre-heat Duration",
-        "description": "Configure when to trigger pre-heating alerts for {rate_name}",
-        "data": {
-          "preheat_duration_minutes": "Pre-heat Duration (minutes)"
-        },
-        "data_description": {
-          "preheat_duration_minutes": "Duration before critical peak events to trigger pre-heating (0-240 minutes, default: 120)"
-        }
-      },
       "calendar": {
         "title": "Calendar Configuration (Required)",
         "description": "A **dedicated calendar is required** for peak sensors on {contract_name}.\n\nAll peak event sensors (state, next peak times, preheat) read their data from this calendar.\n\n⚠️ **Important**: Use a dedicated calendar for HydroQc - do not use a shared calendar.\n\n📅 Don't have a calendar yet? [Create a Local Calendar](/config/integrations/integration/local_calendar)",
@@ -69,9 +59,11 @@
         "title": "Import Consumption History",
         "description": "How many days of consumption history would you like to import? The last 30 days will be synced automatically. Maximum available history is 800 days. Set to 0 to skip additional history import. The import runs in the background and may take several minutes.",
         "data": {
+          "enable_consumption_sync": "Enable consumption sync",
           "history_days": "Days of History to Import"
         },
         "data_description": {
+          "enable_consumption_sync": "Enable to create the consumption sensors and sync hourly data for the Energy dashboard. Disable if you do not need consumption tracking or another integration provides this data.",
           "history_days": "Number of days to import (0-800). Set to 0 to sync only the last 30 days, or enter a value for older history."
         }
       },
@@ -85,18 +77,16 @@
           "sector": "Select whether you are a residential or commercial customer"
         }
       },
-      "opendata_offer": {
+      "opendata_rate": {
         "title": "OpenData Mode - Select Rate",
-        "description": "Select your electricity rate plan for {sector} customers. Available options are fetched from Hydro-Québec's public API",
+        "description": "Select your electricity rate plan. Available options are fetched from Hydro-Québec's public API",
         "data": {
           "contract_name": "Contract Name",
-          "rate_selection": "Rate Plan",
-          "preheat_duration_minutes": "Pre-heat Duration (minutes)"
+          "rate_selection": "Rate Plan"
         },
         "data_description": {
           "contract_name": "A friendly name for this configuration (e.g., 'Home', 'Cottage')",
-          "rate_selection": "Select your electricity rate plan from available options",
-          "preheat_duration_minutes": "Duration before critical peak events to trigger pre-heating (0-240 minutes, default: 120)"
+          "rate_selection": "Select your electricity rate plan from available options"
         }
       },
       "reconfigure": {
@@ -160,7 +150,8 @@
       "reconfigure_successful": "Reconfiguration successful",
       "reconfigure_portal_only": "Only Portal Mode entries can be reconfigured",
       "missing_contract": "The selected contract was not found",
-      "reauth_successful": "Reauthentication successful"
+      "reauth_successful": "Reauthentication successful",
+      "missing_sector": "No customer sector was selected"
     }
   },
   "options": {
@@ -380,6 +371,11 @@
       "portal_status": {
         "name": "Portal Status"
       }
+    },
+    "button": {
+      "refresh_peak_data": {
+        "name": "Refresh peak data"
+      }
     }
   },
   "selector": {
@@ -387,6 +383,63 @@
       "options": {
         "mobile": "Mobile app (recommended): session renewed automatically (90 days)",
         "web": "Web portal: new verification code every day (24 hours)"
+      }
+    },
+    "auth_mode": {
+      "options": {
+        "portal": "Portal (Customer Space login)",
+        "opendata": "OpenData (no login required)"
+      }
+    },
+    "sector": {
+      "options": {
+        "residentiel": "Residential",
+        "affaires": "Business"
+      }
+    },
+    "rate_selection": {
+      "options": {
+        "d_cpc": "Rate D + Winter Credits (CPC)",
+        "dpc": "Flex-D (dynamic pricing)",
+        "m_gdp": "Rate M + GDP",
+        "m_cpc": "Rate M + Winter Credits (CPC)",
+        "m_gpc": "Rate M + GPC",
+        "m_eng": "Rate M + ENG01",
+        "m_oea": "Rate M + OEA"
+      }
+    }
+  },
+  "services": {
+    "refresh_data": {
+      "name": "Refresh data",
+      "description": "Manually refresh data from the Hydro-Québec API."
+    },
+    "sync_consumption_history": {
+      "name": "Sync consumption history",
+      "description": "Import historical hourly consumption data from Hydro-Québec (CSV import for up to 2 years of data). Runs as a background task.",
+      "fields": {
+        "days_back": {
+          "name": "Days back",
+          "description": "Number of days of historical data to import (default 731, about 2 years)."
+        }
+      }
+    },
+    "create_peak_event": {
+      "name": "Create peak event",
+      "description": "Manually create a critical peak event in the calendar. Useful to prepare for an upcoming peak before the official announcement. If Hydro-Québec later announces the same event, it is matched automatically.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Hydro-Québec device (contract) to create the event for."
+        },
+        "date": {
+          "name": "Date",
+          "description": "The date of the peak event."
+        },
+        "time_slot": {
+          "name": "Time slot",
+          "description": "Morning (6h-10h) or evening (16h-20h) peak period."
+        }
       }
     }
   }

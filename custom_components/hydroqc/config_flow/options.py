@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.const import UnitOfTime
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     EntitySelector,
@@ -81,7 +82,7 @@ class HydroQcOptionsFlow(config_entries.OptionsFlow):
                     min=0,
                     max=240,
                     mode=NumberSelectorMode.BOX,
-                    unit_of_measurement="minutes",
+                    unit_of_measurement=UnitOfTime.MINUTES,
                 )
             ),
         }

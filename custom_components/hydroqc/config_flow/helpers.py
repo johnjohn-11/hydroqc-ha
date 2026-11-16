@@ -13,22 +13,21 @@ WINTER_PEAKS_API_BASE = "https://donnees.hydroquebec.com/api/explore/v2.1"
 WINTER_PEAKS_DATASET = "evenements-pointe"
 WINTER_PEAKS_URL = f"{WINTER_PEAKS_API_BASE}/catalog/datasets/{WINTER_PEAKS_DATASET}/records"
 
-# Sector mapping
-SECTOR_MAPPING = {
-    "Residentiel": "Residential",
-    "Affaires": "Commercial",
+# Hydro-Québec offer codes and the (rate, rate option) pair each one stands for
+RATE_CODE_MAPPING = {
+    "CPC-D": ("D", "CPC"),
+    "TPC-DPC": ("DPC", ""),
+    "GDP-Affaires": ("M", "GDP"),
+    "CPC-G": ("M", "CPC"),
+    "TPC-GPC": ("M", "GPC"),
+    "ENG01": ("M", "ENG"),
+    "OEA": ("M", "OEA"),
 }
 
-# Rate mapping from HQ codes to display names
-RATE_CODE_MAPPING = {
-    "CPC-D": ("D", "CPC", "Rate D + Winter Credits (CPC)"),
-    "TPC-DPC": ("DPC", "", "Flex-D (Dynamic Pricing)"),
-    "GDP-Affaires": ("M", "GDP", "Commercial Rate M + GDP"),
-    "CPC-G": ("M", "CPC", "Commercial Rate M + Winter Credits (CPC)"),
-    "TPC-GPC": ("M", "GPC", "Commercial Rate M + GPC"),
-    "ENG01": ("M", "ENG", "Commercial Rate M + ENG01"),
-    "OEA": ("M", "OEA", "Commercial Rate M + OEA"),
-}
+
+def rate_key(rate: str, rate_option: str) -> str:
+    """Return the key naming a rate in the form and in the translations, such as ``d_cpc``."""
+    return f"{rate}_{rate_option}".lower().rstrip("_")
 
 
 async def fetch_available_sectors() -> list[str]:
@@ -59,8 +58,8 @@ async def fetch_available_sectors() -> list[str]:
         return ["Residentiel", "Affaires"]
 
 
-async def fetch_offers_for_sector(sector: str) -> list[dict[str, str]]:
-    """Fetch available offers for a specific sector from Hydro-Québec open data API."""
+async def fetch_offers_for_sector(sector: str) -> list[tuple[str, str]]:
+    """Fetch the (rate, rate option) pairs offered to a sector from Hydro-Québec open data API."""
     try:
         async with aiohttp.ClientSession() as session:
             params: dict[str, str | int] = {
@@ -75,57 +74,13 @@ async def fetch_offers_for_sector(sector: str) -> list[dict[str, str]]:
                 response.raise_for_status()
                 data = await response.json()
 
-                # Extract unique offers from results
-                results = data.get("results", [])
-                offers = {record.get("offre") for record in results if record.get("offre")}
-
-                rate_options = []
-                for offer in offers:
-                    if offer in RATE_CODE_MAPPING:
-                        rate, rate_option, label = RATE_CODE_MAPPING[offer]
-                        rate_options.append(
-                            {
-                                "value": f"{rate}|{rate_option}",
-                                "label": label,
-                                "rate": rate,
-                                "rate_option": rate_option,
-                            }
-                        )
-
-                # Sort by label
-                rate_options.sort(key=lambda x: x["label"])
-
-                return rate_options
+                offers = {record.get("offre") for record in data.get("results", [])}
+                return sorted(
+                    RATE_CODE_MAPPING[offer] for offer in offers & RATE_CODE_MAPPING.keys()
+                )
 
     except Exception as err:
         _LOGGER.warning("Failed to fetch offers for sector %s from API: %s", sector, err)
-        # Return default fallback based on sector
         if sector == "Residentiel":
-            return [
-                {
-                    "value": "D|CPC",
-                    "label": "Rate D + Winter Credits (CPC)",
-                    "rate": "D",
-                    "rate_option": "CPC",
-                },
-                {
-                    "value": "DPC|",
-                    "label": "Flex-D (Dynamic Pricing)",
-                    "rate": "DPC",
-                    "rate_option": "",
-                },
-            ]
-        return [
-            {
-                "value": "M|GDP",
-                "label": "Commercial Rate M + GDP",
-                "rate": "M",
-                "rate_option": "GDP",
-            },
-            {
-                "value": "M|CPC",
-                "label": "Commercial Rate M + Winter Credits (CPC)",
-                "rate": "M",
-                "rate_option": "CPC",
-            },
-        ]
+            return [("D", "CPC"), ("DPC", "")]
+        return [("M", "CPC"), ("M", "GDP")]
