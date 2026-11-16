@@ -1,6 +1,7 @@
 """Unit tests for setup, options, service and removal behaviours."""
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -44,3 +45,30 @@ async def test_opendata_refresh_succeeds_off_season(
 
     assert coordinator.last_update_success
     mock_public_client.fetch_peak_data.assert_not_awaited()
+
+
+async def test_consumption_sync_waits_for_the_first_refresh(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_webuser: MagicMock,
+    mock_public_client: MagicMock,
+) -> None:
+    """The first refresh starts no consumption sync, the later ones do."""
+    mock_config_entry.add_to_hass(hass)
+    mock_webuser.check_hq_portal_status = AsyncMock(return_value=True)
+
+    with (
+        patch(f"{BASE}.WebUser", return_value=mock_webuser),
+        patch(f"{BASE}.PublicDataClient", return_value=mock_public_client),
+    ):
+        coordinator = HydroQcDataCoordinator(hass, mock_config_entry)
+        sync = AsyncMock()
+        with patch.object(coordinator, "_async_regular_consumption_sync", sync):
+            await coordinator.async_refresh()
+            assert coordinator.last_update_success
+            sync.assert_not_called()
+
+            coordinator._first_refresh_done = True
+            await coordinator.async_refresh()
+            await asyncio.sleep(0)
+            sync.assert_called_once()

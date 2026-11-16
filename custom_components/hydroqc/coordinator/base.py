@@ -720,7 +720,7 @@ class HydroQcDataCoordinator(
         if (
             self.is_portal_mode
             and self._contract
-            and hasattr(self, "_first_refresh_done")
+            and self._first_refresh_done
             and enable_consumption_sync
         ):
             # Check if enough time has elapsed (hourly)
